@@ -3,7 +3,6 @@ import pandas as pd
 from io import StringIO
 
 st.set_page_config(page_title="Compliance Advisor", layout="wide")
-
 st.title("🔐 Compunnel AI-Powered Compliance Advisor")
 st.write("Enter your project brief to get a list of required compliances, matched against Compunnel's existing certifications.")
 
@@ -28,7 +27,7 @@ if st.button("Analyze Project"):
 
     text = project_description.lower()
 
-    # Match Categories
+    # Keyword rules
     domains = {
         "healthcare": ["healthcare", "hospital", "patient", "medical", "clinic"],
         "finance": ["bank", "finance", "credit card", "payment", "fintech"],
@@ -48,20 +47,21 @@ if st.button("Analyze Project"):
         "India": ["india", "indian", "bharat"],
     }
 
+    # Match based on most keyword hits
     def match_category(rules, text):
+        match_scores = {}
         for label, keywords in rules.items():
-            for word in keywords:
-                if word in text:
-                    return label
-        return "Unknown"
+            score = sum(kw in text for kw in keywords)
+            if score > 0:
+                match_scores[label] = score
+        return max(match_scores, key=match_scores.get) if match_scores else "Unknown"
 
     matched_domain = match_category(domains, text)
     matched_data_type = match_category(data_types, text)
     matched_region = match_category(regions, text)
 
-    # Match Compliance from Google Sheet
+    # Match Compliance from Sheet
     compliance_suggestions = []
-
     for _, row in compliance_df.iterrows():
         domain = str(row['Domain']).lower()
         applies_to = str(row['Applies To']).lower()
@@ -76,24 +76,23 @@ if st.button("Analyze Project"):
         ):
             compliance_name = row['Compliance Name']
             is_followed = str(row.get('Followed By Compunnel', '')).strip().lower() == "yes"
-            checklist_items = row.iloc[3:]  # Assuming checklist starts from 4th column
+            checklist_items = row.iloc[3:]
             compliance_suggestions.append({
                 "name": compliance_name,
                 "followed": is_followed,
                 "checklist": checklist_items
             })
 
-    # Display Detected Info
+    # Display Project Info
     st.subheader("🔍 Detected Project Info")
     st.write(f"**Domain**: {matched_domain}")
     st.write(f"**Data Type**: {matched_data_type}")
     st.write(f"**Geography**: {matched_region}")
 
-    # Display Compliance Match
+    # Display Compliance Recommendations
     st.subheader("✅ Required Compliances for this Project")
-
     if not compliance_suggestions:
-        st.warning("⚠️ No compliance frameworks matched this project. Try using more detailed keywords (e.g., PHI, India, patient data).")
+        st.warning("⚠️ No compliance frameworks matched this project. Try using more detailed keywords.")
     else:
         already_available = [c["name"] for c in compliance_suggestions if c["followed"]]
         missing_compliances = [c["name"] for c in compliance_suggestions if not c["followed"]]
@@ -120,20 +119,20 @@ if st.button("Analyze Project"):
                 if pd.notna(item):
                     st.write(f"- {item}")
 
-        # Generate report text
+        # Downloadable report
         report = StringIO()
-        report.write("Compunnel AI-Powered Compliance Advisor\n\n")
-        report.write("🔍 Detected Info:\n")
-        report.write(f"• Domain: {matched_domain}\n")
-        report.write(f"• Data Type: {matched_data_type}\n")
-        report.write(f"• Geography: {matched_region}\n\n")
-        report.write("✅ Required Compliances:\n")
+        report.write("🔐 Compunnel Compliance Report\n\n")
+        report.write(f"📄 Project: {project_description[:100]}...\n")
+        report.write(f"Domain: {matched_domain}\n")
+        report.write(f"Data Type: {matched_data_type}\n")
+        report.write(f"Region: {matched_region}\n\n")
+        report.write("Compliances:\n")
         for c in compliance_suggestions:
             status = "✅ Already Compliant" if c["followed"] else "❗ Needs Implementation"
             report.write(f"- {c['name']} [{status}]\n")
-        report.write("\n📋 Checklist Items:\n")
+        report.write("\nChecklist:\n")
         for c in compliance_suggestions:
-            report.write(f"\n{c['name']}:\n")
+            report.write(f"\n{c['name']} Checklist:\n")
             for item in c["checklist"]:
                 if pd.notna(item):
                     report.write(f"  - {item}\n")
