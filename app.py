@@ -36,11 +36,21 @@ if st.button("Analyze Project"):
 }
 
 
-    data_types = {
-    "PHI": ["health data", "patient", "medical record", "phi", "doctor", "lab result"],
-    "PII": ["personal data", "name", "address", "email", "phone", "aadhar", "dob"],
-    "financial": ["credit card", "bank account", "payment", "transaction", "upi"],
+   data_types = {
+    "PHI": [
+        "health data", "patient", "medical record", "phi",
+        "doctor", "lab result", "clinical", "hospital", "diagnosis"
+    ],
+    "PII": [
+        "personal data", "sensitive personal data", "pii",
+        "name", "address", "email", "phone", "aadhar", "dob", "identity"
+    ],
+    "financial": [
+        "financial", "financial data", "bank account", "credit card",
+        "payment", "transaction", "upi", "investment", "fintech"
+    ],
 }
+
 
 
     regions = {
