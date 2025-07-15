@@ -7,7 +7,7 @@ st.title("🔐 Compunnel AI-Powered Compliance Advisor")
 st.write("Enter your project brief to get a list of required compliances, matched against Compunnel's existing certifications.")
 
 # Step 1: Load compliance data from Google Sheets
-sheet_id = "https://docs.google.com/spreadsheets/d/1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I/edit?usp=sharing"  # 👈 Replace this with your actual sheet ID
+sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"  # 👈 Replace this with your actual sheet ID
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
 try:
