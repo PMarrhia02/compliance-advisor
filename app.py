@@ -1,18 +1,20 @@
 import streamlit as st
 
-# Input project description
-st.title("🔐 AI-Powered Compliance Advisor")
-st.write("Enter your project brief below to get compliance recommendations:")
+# Streamlit app title
+st.title("🔐 AI-Powered Compliance Advisor for Compunnel")
+st.write("Enter your project brief below to get compliance recommendations based on domain, data, and geography.")
 
+# Input text area
 project_description = st.text_area("📄 Project Description", height=200)
 
+# Run when button is clicked
 if st.button("Analyze Project"):
     if project_description.strip() == "":
         st.warning("Please enter a project description.")
     else:
         text = project_description.lower()
 
-        # Define keyword rules
+        # RULE-BASED MATCHING
         domains = {
             "healthcare": ["healthcare", "hospital", "patient", "medical", "clinic"],
             "finance": ["bank", "finance", "credit card", "payment", "fintech"],
@@ -42,7 +44,7 @@ if st.button("Analyze Project"):
         matched_data_type = match_category(data_types, text)
         matched_region = match_category(regions, text)
 
-        # Compliance mapping
+        # COMPLIANCE MAPPING
         compliance_suggestions = []
 
         if matched_domain == "healthcare" and matched_data_type == "PHI":
@@ -62,6 +64,7 @@ if st.button("Analyze Project"):
         compliance_suggestions.append("ISO 27001 (General Best Practices)")
         compliance_suggestions = list(set(compliance_suggestions))
 
+        # CHECKLISTS
         checklists = {
             "HIPAA": [
                 "✔️ Sign a Business Associate Agreement (BAA)",
@@ -101,16 +104,40 @@ if st.button("Analyze Project"):
             ]
         }
 
+        # COMPUNNEL EXISTING COMPLIANCES — you can customize this list
+        compunnel_compliances = ["ISO 27001 (General Best Practices)", "SOC 2", "CCPA or State-level Privacy Laws", "GDPR"]
+
+        # COMPLIANCE GAP ANALYSIS
+        already_available = [c for c in compliance_suggestions if c in compunnel_compliances]
+        missing_compliances = [c for c in compliance_suggestions if c not in compunnel_compliances]
+
+        # DISPLAY OUTPUT
         st.subheader("🔍 Detected Project Info")
         st.write(f"**Domain**: {matched_domain}")
         st.write(f"**Data Type**: {matched_data_type}")
         st.write(f"**Geography**: {matched_region}")
 
-        st.subheader("✅ Suggested Compliance Frameworks")
+        st.subheader("✅ Required Compliance Frameworks for This Project")
         for c in compliance_suggestions:
             st.write(f"- {c}")
 
-        st.subheader("📋 Checklist")
+        st.subheader("🏢 Compunnel Compliance Coverage")
+
+        st.markdown("✅ **Already Compliant With:**")
+        if already_available:
+            for comp in already_available:
+                st.success(f"{comp}")
+        else:
+            st.warning("None matched yet.")
+
+        st.markdown("❗ **Needs to be Implemented for this Project:**")
+        if missing_compliances:
+            for comp in missing_compliances:
+                st.error(f"{comp}")
+        else:
+            st.info("All required compliances already exist.")
+
+        st.subheader("📋 Detailed Checklist")
         for c in compliance_suggestions:
             st.markdown(f"**{c}**")
             for item in checklists.get(c, ["Checklist not available."]):
