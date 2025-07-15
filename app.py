@@ -29,10 +29,12 @@ if st.button("Analyze Project"):
 
     # Keyword rules
     domains = {
-        "healthcare": ["healthcare", "hospital", "patient", "medical", "clinic"],
-        "finance": ["bank", "finance", "credit card", "payment", "fintech"],
-        "ecommerce": ["ecommerce", "shopping", "online store", "retail"],
-        "ai solutions": ["ai", "artificial intelligence", "machine learning", "model"],
+    "healthcare": ["healthcare", "hospital", "patient", "medical", "clinic"],
+    "finance": ["bank", "finance", "credit card", "payment", "fintech"],
+    "ecommerce": ["ecommerce", "shopping", "online store", "retail"],
+    "ai solutions": ["ai", "artificial intelligence", "machine learning", "ml", "model", "llm", "b2b", "platform"],
+}
+,
     }
 
     data_types = {
