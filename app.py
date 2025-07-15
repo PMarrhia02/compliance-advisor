@@ -8,7 +8,7 @@ st.write("Enter your project brief to get a list of required compliances, matche
 
 # Load compliance data from Google Sheets
 sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"  # 🔁 Replace with your actual Sheet ID
-sheet_url = f"https://docs.google.com/spreadsheets/d/{1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I}/export?format=csv"
+sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
 try:
     compliance_df = pd.read_csv(sheet_url)
