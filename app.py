@@ -6,7 +6,6 @@ st.set_page_config(page_title="Compliance Advisor", layout="wide")
 st.title("🔐 Compunnel AI-Powered Compliance Advisor")
 st.write("Enter your project brief to get a list of required compliances, matched against Compunnel's existing certifications.")
 
-# Load compliance data from Google Sheets
 sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
@@ -17,7 +16,6 @@ except Exception as e:
     st.error("❌ Failed to load compliance database. Please check the sheet ID and sharing permissions.")
     st.stop()
 
-# Project Description Input
 project_description = st.text_area("📄 Project Description", height=200)
 
 if st.button("Analyze Project"):
@@ -27,31 +25,27 @@ if st.button("Analyze Project"):
 
     text = project_description.lower()
 
-    # Keyword rules
     domains = {
-    "healthcare": ["healthcare", "hospital", "patient", "medical", "clinic"],
-    "finance": ["bank", "finance", "credit card", "payment", "fintech"],
-    "ecommerce": ["ecommerce", "shopping", "online store", "retail"],
-    "ai solutions": ["ai", "artificial intelligence", "machine learning", "ml", "model", "llm", "b2b", "platform"],
-}
+        "healthcare": ["healthcare", "hospital", "patient", "medical", "clinic"],
+        "finance": ["bank", "finance", "credit card", "payment", "fintech", "investment", "lending"],
+        "ecommerce": ["ecommerce", "shopping", "online store", "retail"],
+        "ai solutions": ["ai", "artificial intelligence", "machine learning", "ml", "model", "llm", "b2b", "platform", "data science"],
+    }
 
-
-   data_types = {
-    "PHI": [
-        "health data", "patient", "medical record", "phi",
-        "doctor", "lab result", "clinical", "hospital", "diagnosis"
-    ],
-    "PII": [
-        "personal data", "sensitive personal data", "pii",
-        "name", "address", "email", "phone", "aadhar", "dob", "identity"
-    ],
-    "financial": [
-        "financial", "financial data", "bank account", "credit card",
-        "payment", "transaction", "upi", "investment", "fintech"
-    ],
-}
-
-
+    data_types = {
+        "PHI": [
+            "health data", "patient", "medical record", "phi",
+            "doctor", "lab result", "clinical", "hospital", "diagnosis"
+        ],
+        "PII": [
+            "personal data", "sensitive personal data", "pii",
+            "name", "address", "email", "phone", "aadhar", "dob", "identity"
+        ],
+        "financial": [
+            "financial", "financial data", "bank account", "credit card",
+            "payment", "transaction", "upi", "investment", "fintech"
+        ],
+    }
 
     regions = {
         "USA": ["united states", "us", "usa", "america"],
@@ -59,7 +53,6 @@ if st.button("Analyze Project"):
         "India": ["india", "indian", "bharat"],
     }
 
-    # Match based on most keyword hits
     def match_category(rules, text):
         match_scores = {}
         for label, keywords in rules.items():
@@ -72,7 +65,6 @@ if st.button("Analyze Project"):
     matched_data_type = match_category(data_types, text)
     matched_region = match_category(regions, text)
 
-    # Match Compliance from Sheet
     compliance_suggestions = []
     for _, row in compliance_df.iterrows():
         domain = str(row['Domain']).lower()
@@ -86,22 +78,17 @@ if st.button("Analyze Project"):
             or matched_region.lower() in applies_to_list
             or "all" in applies_to_list
         ):
-            compliance_name = row['Compliance Name']
-            is_followed = str(row.get('Followed By Compunnel', '')).strip().lower() == "yes"
-            checklist_items = row.iloc[3:]
             compliance_suggestions.append({
-                "name": compliance_name,
-                "followed": is_followed,
-                "checklist": checklist_items
+                "name": row['Compliance Name'],
+                "followed": str(row.get('Followed By Compunnel', '')).strip().lower() == "yes",
+                "checklist": row.iloc[3:]
             })
 
-    # Display Project Info
     st.subheader("🔍 Detected Project Info")
     st.write(f"**Domain**: {matched_domain}")
     st.write(f"**Data Type**: {matched_data_type}")
     st.write(f"**Geography**: {matched_region}")
 
-    # Display Compliance Recommendations
     st.subheader("✅ Required Compliances for this Project")
     if not compliance_suggestions:
         st.warning("⚠️ No compliance frameworks matched this project. Try using more detailed keywords.")
@@ -123,7 +110,6 @@ if st.button("Analyze Project"):
         else:
             st.info("All required compliances are already covered by Compunnel.")
 
-        # Checklist display
         st.subheader("📋 Checklist for Each Compliance")
         for c in compliance_suggestions:
             st.markdown(f"**{c['name']}**")
@@ -131,7 +117,6 @@ if st.button("Analyze Project"):
                 if pd.notna(item):
                     st.write(f"- {item}")
 
-        # Downloadable report
         report = StringIO()
         report.write("🔐 Compunnel Compliance Report\n\n")
         report.write(f"📄 Project: {project_description[:100]}...\n")
