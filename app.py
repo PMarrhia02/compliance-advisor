@@ -7,7 +7,7 @@ st.title("🔐 Compunnel AI-Powered Compliance Advisor")
 st.write("Enter your project brief to get a list of required compliances, matched against Compunnel's existing certifications.")
 
 # Load compliance data from Google Sheets
-sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"  # 🔁 Replace with your actual Sheet ID
+sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
 try:
@@ -64,13 +64,14 @@ if st.button("Analyze Project"):
     for _, row in compliance_df.iterrows():
         domain = str(row['Domain']).lower()
         applies_to = str(row['Applies To']).lower()
+        applies_to_list = [item.strip() for item in applies_to.split(",")]
 
         if (
-            matched_domain in domain or domain == "all"
+            matched_domain == domain or domain == "all"
         ) and (
-            matched_data_type in applies_to
-            or matched_region in applies_to
-            or applies_to == "all"
+            matched_data_type.lower() in applies_to_list
+            or matched_region.lower() in applies_to_list
+            or "all" in applies_to_list
         ):
             compliance_suggestions.append(row['Compliance Name'])
 
