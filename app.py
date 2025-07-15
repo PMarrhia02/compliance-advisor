@@ -34,7 +34,7 @@ if st.button("Analyze Project"):
     "ecommerce": ["ecommerce", "shopping", "online store", "retail"],
     "ai solutions": ["ai", "artificial intelligence", "machine learning", "ml", "model", "llm", "b2b", "platform"],
 }
-,
+
 
     data_types = {
         "PHI": ["health data", "patient", "medical record", "phi", "doctor", "lab result"],
