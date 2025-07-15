@@ -1,144 +1,117 @@
 import streamlit as st
+import pandas as pd
 
-# Streamlit app title
-st.title("🔐 AI-Powered Compliance Advisor for Compunnel")
-st.write("Enter your project brief below to get compliance recommendations based on domain, data, and geography.")
+st.set_page_config(page_title="Compliance Advisor", layout="wide")
 
-# Input text area
+st.title("🔐 Compunnel AI-Powered Compliance Advisor")
+st.write("Enter your project brief to get a list of required compliances, matched against Compunnel's existing certifications.")
+
+# Step 1: Load compliance data from Google Sheets
+sheet_id = "https://docs.google.com/spreadsheets/d/1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I/edit?usp=sharing"  # 👈 Replace this with your actual sheet ID
+sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+
+try:
+    compliance_df = pd.read_csv(sheet_url)
+    st.success("✅ Compliance database loaded successfully.")
+except Exception as e:
+    st.error("❌ Failed to load compliance database. Please check the sheet ID and sharing permissions.")
+    st.stop()
+
+# Step 2: Project Description Input
 project_description = st.text_area("📄 Project Description", height=200)
 
-# Run when button is clicked
 if st.button("Analyze Project"):
     if project_description.strip() == "":
-        st.warning("Please enter a project description.")
+        st.warning("Please enter a valid project description.")
+        st.stop()
+
+    text = project_description.lower()
+
+    # Step 3: Match Categories
+    domains = {
+        "healthcare": ["healthcare", "hospital", "patient", "medical", "clinic"],
+        "finance": ["bank", "finance", "credit card", "payment", "fintech"],
+        "ecommerce": ["ecommerce", "shopping", "online store", "retail"],
+        "ai solutions": ["ai", "artificial intelligence", "machine learning", "model"],
+    }
+
+    data_types = {
+        "PHI": ["health data", "patient", "medical record", "PHI"],
+        "PII": ["personal data", "name", "address", "email", "phone"],
+        "financial": ["credit card", "bank account", "payment", "transaction"],
+    }
+
+    regions = {
+        "USA": ["united states", "us", "usa", "america"],
+        "EU": ["europe", "germany", "france", "eu", "european union"],
+        "India": ["india", "indian"],
+    }
+
+    def match_category(rules, text):
+        for label, keywords in rules.items():
+            for word in keywords:
+                if word in text:
+                    return label
+        return "Unknown"
+
+    matched_domain = match_category(domains, text)
+    matched_data_type = match_category(data_types, text)
+    matched_region = match_category(regions, text)
+
+    # Step 4: Match Compliance from Google Sheet
+    compliance_suggestions = []
+
+    for _, row in compliance_df.iterrows():
+        domain = str(row['Domain']).lower()
+        applies_to = str(row['Applies To']).lower()
+
+        if (
+            matched_domain in domain or domain == "all"
+        ) and (
+            matched_data_type in applies_to
+            or matched_region in applies_to
+            or applies_to == "all"
+        ):
+            compliance_suggestions.append(row['Compliance Name'])
+
+    compliance_suggestions = list(set(compliance_suggestions))
+
+    # Step 5: Compunnel Existing Compliances
+    compunnel_compliances = ["ISO 27001", "SOC 2", "GDPR", "CCPA or State-level Privacy Laws"]
+
+    already_available = [c for c in compliance_suggestions if c in compunnel_compliances]
+    missing_compliances = [c for c in compliance_suggestions if c not in compunnel_compliances]
+
+    # Step 6: Display Results
+    st.subheader("🔍 Detected Project Info")
+    st.write(f"**Domain**: {matched_domain}")
+    st.write(f"**Data Type**: {matched_data_type}")
+    st.write(f"**Geography**: {matched_region}")
+
+    st.subheader("✅ Required Compliances for this Project")
+    for c in compliance_suggestions:
+        st.write(f"• {c}")
+
+    st.subheader("🏢 Compunnel Compliance Coverage")
+
+    st.markdown("✅ **Already Compliant With:**")
+    if already_available:
+        for comp in already_available:
+            st.success(comp)
     else:
-        text = project_description.lower()
+        st.warning("None of the matched compliances are currently covered.")
 
-        # RULE-BASED MATCHING
-        domains = {
-            "healthcare": ["healthcare", "hospital", "patient", "medical", "clinic"],
-            "finance": ["bank", "finance", "credit card", "payment", "fintech"],
-            "ecommerce": ["ecommerce", "shopping", "online store", "retail"],
-        }
+    st.markdown("❗ **Needs to be Implemented for this Project:**")
+    if missing_compliances:
+        for comp in missing_compliances:
+            st.error(comp)
+    else:
+        st.info("All suggested compliances are already covered by Compunnel.")
 
-        data_types = {
-            "PHI": ["health data", "patient", "medical record", "PHI"],
-            "PII": ["personal data", "name", "address", "email", "phone"],
-            "financial": ["credit card", "bank account", "payment", "transaction"],
-        }
-
-        regions = {
-            "USA": ["united states", "us", "usa", "america"],
-            "EU": ["europe", "germany", "france", "eu", "european union"],
-            "India": ["india", "indian"],
-        }
-
-        def match_category(rules, text):
-            for label, keywords in rules.items():
-                for word in keywords:
-                    if word in text:
-                        return label
-            return "Unknown"
-
-        matched_domain = match_category(domains, text)
-        matched_data_type = match_category(data_types, text)
-        matched_region = match_category(regions, text)
-
-        # COMPLIANCE MAPPING
-        compliance_suggestions = []
-
-        if matched_domain == "healthcare" and matched_data_type == "PHI":
-            compliance_suggestions.append("HIPAA")
-
-        if matched_data_type in ["PII", "PHI"]:
-            if matched_region == "EU":
-                compliance_suggestions.append("GDPR")
-            elif matched_region == "India":
-                compliance_suggestions.append("DPDP (India)")
-            elif matched_region == "USA":
-                compliance_suggestions.append("CCPA or State-level Privacy Laws")
-
-        if matched_data_type == "financial":
-            compliance_suggestions.append("PCI-DSS")
-
-        compliance_suggestions.append("ISO 27001 (General Best Practices)")
-        compliance_suggestions = list(set(compliance_suggestions))
-
-        # CHECKLISTS
-        checklists = {
-            "HIPAA": [
-                "✔️ Sign a Business Associate Agreement (BAA)",
-                "✔️ Implement access control and audit logs",
-                "✔️ Train employees on PHI handling",
-                "✔️ Encrypt health data at rest and in transit"
-            ],
-            "GDPR": [
-                "✔️ Appoint a Data Protection Officer (DPO)",
-                "✔️ Provide right to access and erasure",
-                "✔️ Obtain clear consent before data collection",
-                "✔️ Report data breaches within 72 hours"
-            ],
-            "PCI-DSS": [
-                "✔️ Use and maintain firewalls",
-                "✔️ Encrypt transmission of cardholder data",
-                "✔️ Maintain secure systems and applications",
-                "✔️ Regularly test security systems"
-            ],
-            "ISO 27001 (General Best Practices)": [
-                "✔️ Define an information security policy",
-                "✔️ Conduct a risk assessment",
-                "✔️ Apply access controls",
-                "✔️ Monitor and review security controls regularly"
-            ],
-            "DPDP (India)": [
-                "✔️ Classify personal data under new DPDP rules",
-                "✔️ Ensure consent and purpose limitation",
-                "✔️ Nominate a Data Fiduciary",
-                "✔️ Enable grievance redressal mechanisms"
-            ],
-            "CCPA or State-level Privacy Laws": [
-                "✔️ Provide opt-out for data selling",
-                "✔️ Enable data access and deletion requests",
-                "✔️ Update privacy policy to match CCPA",
-                "✔️ Implement data inventory tracking"
-            ]
-        }
-
-        # COMPUNNEL EXISTING COMPLIANCES — you can customize this list
-        compunnel_compliances = ["ISO 27001 (General Best Practices)", "SOC 2", "CCPA or State-level Privacy Laws", "GDPR"]
-
-        # COMPLIANCE GAP ANALYSIS
-        already_available = [c for c in compliance_suggestions if c in compunnel_compliances]
-        missing_compliances = [c for c in compliance_suggestions if c not in compunnel_compliances]
-
-        # DISPLAY OUTPUT
-        st.subheader("🔍 Detected Project Info")
-        st.write(f"**Domain**: {matched_domain}")
-        st.write(f"**Data Type**: {matched_data_type}")
-        st.write(f"**Geography**: {matched_region}")
-
-        st.subheader("✅ Required Compliance Frameworks for This Project")
-        for c in compliance_suggestions:
-            st.write(f"- {c}")
-
-        st.subheader("🏢 Compunnel Compliance Coverage")
-
-        st.markdown("✅ **Already Compliant With:**")
-        if already_available:
-            for comp in already_available:
-                st.success(f"{comp}")
-        else:
-            st.warning("None matched yet.")
-
-        st.markdown("❗ **Needs to be Implemented for this Project:**")
-        if missing_compliances:
-            for comp in missing_compliances:
-                st.error(f"{comp}")
-        else:
-            st.info("All required compliances already exist.")
-
-        st.subheader("📋 Detailed Checklist")
-        for c in compliance_suggestions:
-            st.markdown(f"**{c}**")
-            for item in checklists.get(c, ["Checklist not available."]):
-                st.write(f"  - {item}")
+    st.subheader("📋 Checklist for Each Compliance")
+    for compliance in compliance_suggestions:
+        st.markdown(f"**{compliance}**")
+        checklist_items = compliance_df[compliance_df["Compliance Name"] == compliance].iloc[0, 3:]
+        for item in checklist_items:
+            if pd.notna(item):
+                st.write(f"- {item}")
