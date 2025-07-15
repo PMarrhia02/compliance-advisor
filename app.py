@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from io import StringIO
 
 st.set_page_config(page_title="Compliance Advisor", layout="wide")
 
@@ -73,15 +74,14 @@ if st.button("Analyze Project"):
             or matched_region.lower() in applies_to_list
             or "all" in applies_to_list
         ):
-            compliance_suggestions.append(row['Compliance Name'])
-
-    compliance_suggestions = list(set(compliance_suggestions))
-
-    # Compunnel's Current Compliances (Update as needed)
-    compunnel_compliances = ["ISO 27001", "SOC 2", "GDPR", "CCPA or State-level Privacy Laws"]
-
-    already_available = [c for c in compliance_suggestions if c in compunnel_compliances]
-    missing_compliances = [c for c in compliance_suggestions if c not in compunnel_compliances]
+            compliance_name = row['Compliance Name']
+            is_followed = str(row.get('Followed By Compunnel', '')).strip().lower() == "yes"
+            checklist_items = row.iloc[3:]  # Assuming checklist starts from 4th column
+            compliance_suggestions.append({
+                "name": compliance_name,
+                "followed": is_followed,
+                "checklist": checklist_items
+            })
 
     # Display Detected Info
     st.subheader("🔍 Detected Project Info")
@@ -89,18 +89,15 @@ if st.button("Analyze Project"):
     st.write(f"**Data Type**: {matched_data_type}")
     st.write(f"**Geography**: {matched_region}")
 
-    # Show Compliance Suggestions
+    # Display Compliance Match
     st.subheader("✅ Required Compliances for this Project")
-    if compliance_suggestions:
-        for c in compliance_suggestions:
-            st.write(f"• {c}")
-    else:
+
+    if not compliance_suggestions:
         st.warning("⚠️ No compliance frameworks matched this project. Try using more detailed keywords (e.g., PHI, India, patient data).")
+    else:
+        already_available = [c["name"] for c in compliance_suggestions if c["followed"]]
+        missing_compliances = [c["name"] for c in compliance_suggestions if not c["followed"]]
 
-    # Compunnel Coverage
-    st.subheader("🏢 Compunnel Compliance Coverage")
-
-    if compliance_suggestions:
         st.markdown("✅ **Already Compliant With:**")
         if already_available:
             for comp in already_available:
@@ -115,12 +112,35 @@ if st.button("Analyze Project"):
         else:
             st.info("All required compliances are already covered by Compunnel.")
 
-    # Show Checklist Items
-    if compliance_suggestions:
+        # Checklist display
         st.subheader("📋 Checklist for Each Compliance")
-        for compliance in compliance_suggestions:
-            st.markdown(f"**{compliance}**")
-            checklist_items = compliance_df[compliance_df["Compliance Name"] == compliance].iloc[0, 3:]
-            for item in checklist_items:
+        for c in compliance_suggestions:
+            st.markdown(f"**{c['name']}**")
+            for item in c["checklist"]:
                 if pd.notna(item):
                     st.write(f"- {item}")
+
+        # Generate report text
+        report = StringIO()
+        report.write("Compunnel AI-Powered Compliance Advisor\n\n")
+        report.write("🔍 Detected Info:\n")
+        report.write(f"• Domain: {matched_domain}\n")
+        report.write(f"• Data Type: {matched_data_type}\n")
+        report.write(f"• Geography: {matched_region}\n\n")
+        report.write("✅ Required Compliances:\n")
+        for c in compliance_suggestions:
+            status = "✅ Already Compliant" if c["followed"] else "❗ Needs Implementation"
+            report.write(f"- {c['name']} [{status}]\n")
+        report.write("\n📋 Checklist Items:\n")
+        for c in compliance_suggestions:
+            report.write(f"\n{c['name']}:\n")
+            for item in c["checklist"]:
+                if pd.notna(item):
+                    report.write(f"  - {item}\n")
+
+        st.download_button(
+            label="📥 Download Compliance Report",
+            data=report.getvalue(),
+            file_name="compliance_report.txt",
+            mime="text/plain"
+        )
