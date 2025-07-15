@@ -37,10 +37,11 @@ if st.button("Analyze Project"):
 
 
     data_types = {
-        "PHI": ["health data", "patient", "medical record", "phi", "doctor", "lab result"],
-        "PII": ["personal data", "name", "address", "email", "phone", "aadhar", "dob"],
-        "financial": ["credit card", "bank account", "payment", "transaction", "upi"],
-    }
+    "PHI": ["health data", "patient", "medical record", "phi", "doctor", "lab result"],
+    "PII": ["personal data", "name", "address", "email", "phone", "aadhar", "dob"],
+    "financial": ["credit card", "bank account", "payment", "transaction", "upi"],
+}
+
 
     regions = {
         "USA": ["united states", "us", "usa", "america"],
