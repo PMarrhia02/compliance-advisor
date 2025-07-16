@@ -228,6 +228,25 @@ def match_category(text: str, rules: Dict[str, List[str]]) -> str:
             scores[category] = score
     
     return max(scores.items(), key=lambda x: x[1])[0] if scores else "Unknown"
+    """
+    text = text.lower()
+    scores = {}
+    
+    for category, keywords in rules.items():
+        score = 0
+        for keyword in keywords:
+            keyword = keyword.lower()
+            if keyword in text:
+                # Weight by term length (multi-word terms get higher scores)
+                term_weight = 1 + (len(keyword.split()) * 0.3)
+                # Position bonus (terms earlier in list are more important)
+                position_bonus = 1 + (0.1 * (len(keywords) - keywords.index(keyword)) / len(keywords)
+                score += term_weight * position_bonus
+        
+        if score > 0:
+            scores[category] = score
+    
+    return max(scores.items(), key=lambda x: x[1])[0] if scores else "Unknown"
 
 # Generate PDF report with professional formatting
 def generate_pdf_report(content: str, project_info: Dict) -> bytes:
