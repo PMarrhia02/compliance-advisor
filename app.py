@@ -178,30 +178,43 @@ if st.button("🔍 Analyze Project"):
 
     # 📥 Download Options
     st.markdown("### 📥 Download Compliance Summary")
-    option = st.radio("Choose download format:", ["Text", "PDF"])
+    option = st.radio("Choose download format:", ["Text", "PDF"], key="download_format")
 
     if option == "Text":
         st.download_button(
             label="📄 Download as TXT",
             data=report_text,
             file_name="compliance_summary.txt",
-            mime="text/plain"
+            mime="text/plain",
+            key="download_txt"
         )
     else:
-        pdf_buffer = BytesIO()
-        c = canvas.Canvas(pdf_buffer, pagesize=A4)
-        textobject = c.beginText(40, 800)
-        for line in report_text.split('\n'):
-            textobject.textLine(line)
-        c.drawText(textobject)
-        c.save()
-        pdf_buffer.seek(0)
-        st.download_button(
-            label="🧾 Download as PDF",
-            data=pdf_buffer,
-            file_name="compliance_summary.pdf",
-            mime="application/pdf"
-        )
+        if "pdf_ready" not in st.session_state:
+            st.session_state.pdf_ready = False
+        if "pdf_data" not in st.session_state:
+            st.session_state.pdf_data = None
+
+        if st.button("🧾 Generate PDF"):
+            pdf_buffer = BytesIO()
+            c = canvas.Canvas(pdf_buffer, pagesize=A4)
+            textobject = c.beginText(40, 800)
+            for line in report_text.split('\n'):
+                textobject.textLine(line)
+            c.drawText(textobject)
+            c.save()
+            pdf_buffer.seek(0)
+            st.session_state.pdf_data = pdf_buffer.getvalue()
+            st.session_state.pdf_ready = True
+            st.success("✅ PDF generated! Click below to download.")
+
+        if st.session_state.get("pdf_ready"):
+            st.download_button(
+                label="⬇️ Download PDF",
+                data=st.session_state["pdf_data"],
+                file_name="compliance_summary.pdf",
+                mime="application/pdf",
+                key="download_pdf"
+            )
 
 # Footer
 st.markdown("<div class='footer'>© 2025 Compunnel Inc. | Built with ❤️ using Streamlit</div>", unsafe_allow_html=True)
