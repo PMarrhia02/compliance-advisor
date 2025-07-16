@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 # Set page config
 st.set_page_config(page_title="Compliance Advisor", layout="wide")
@@ -11,9 +14,6 @@ st.markdown("""
             font-size: 2.5em;
             color: #003366;
             font-weight: bold;
-        }
-        .section {
-            margin-top: 2rem;
         }
         .badge {
             display: inline-block;
@@ -169,7 +169,6 @@ if st.button("🔍 Analyze Project"):
                 st.markdown(f"• {item}")
             if comp['why']:
                 st.caption(f"💡 _Why Required_: {comp['why']}")
-        # Append to downloadable report
         report_text += f"\n{comp['name']}:\n"
         for item in comp['checklist']:
             report_text += f"  - {item}\n"
@@ -177,14 +176,33 @@ if st.button("🔍 Analyze Project"):
             report_text += f"  Why Required: {comp['why']}\n"
         report_text += f"  Status: {'Followed ✅' if comp['followed'] else 'Not Followed ❌'}\n"
 
-    # Download Button
+    # 📥 Download Options
     st.markdown("### 📥 Download Compliance Summary")
-    st.download_button(
-        label="📄 Download Compliance Report",
-        data=report_text,
-        file_name="compliance_summary.txt",
-        mime="text/plain"
-    )
+    option = st.radio("Choose download format:", ["Text", "PDF"])
+
+    if option == "Text":
+        st.download_button(
+            label="📄 Download as TXT",
+            data=report_text,
+            file_name="compliance_summary.txt",
+            mime="text/plain"
+        )
+    else:
+        # PDF generation using reportlab
+        pdf_buffer = BytesIO()
+        c = canvas.Canvas(pdf_buffer, pagesize=A4)
+        textobject = c.beginText(40, 800)
+        for line in report_text.split('\n'):
+            textobject.textLine(line)
+        c.drawText(textobject)
+        c.save()
+        pdf_data = pdf_buffer.getvalue()
+        st.download_button(
+            label="🧾 Download as PDF",
+            data=pdf_data,
+            file_name="compliance_summary.pdf",
+            mime="application/pdf"
+        )
 
 # Footer
 st.markdown("<div class='footer'>© 2025 Compunnel Inc. | Built with ❤️ using Streamlit</div>", unsafe_allow_html=True)
