@@ -1,20 +1,58 @@
 import streamlit as st
 import pandas as pd
-from io import StringIO
 
-# Page Config
+# Set page config
 st.set_page_config(page_title="Compliance Advisor", layout="wide")
-st.markdown("<h1 style='color:#003366;'>🔐 Compunnel AI-Powered Compliance Advisor</h1>", unsafe_allow_html=True)
 
-# Sidebar Branding
+# Header
+st.markdown("""
+    <style>
+        .title {
+            font-size: 2.5em;
+            color: #003366;
+            font-weight: bold;
+        }
+        .section {
+            margin-top: 2rem;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.25em 0.6em;
+            font-size: 90%;
+            font-weight: 600;
+            border-radius: 0.25rem;
+        }
+        .badge-green {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .badge-red {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .badge-blue {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        .footer {
+            text-align: center;
+            font-size: 0.9em;
+            color: gray;
+            margin-top: 3rem;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("<div class='title'>🔐 Compunnel AI-Powered Compliance Advisor</div>", unsafe_allow_html=True)
+st.markdown("Enter your project brief to see the cybersecurity and data protection compliances required, compared to what Compunnel already complies with.")
+
+# Sidebar
 with st.sidebar:
-    st.markdown("## 🏢 Compunnel")
-    st.markdown("AI-Powered Cybersecurity Compliance Advisor")
-    st.markdown("___")
-    st.markdown("**Need help?**")
-    st.info("Use keywords like *healthcare*, *PHI*, *India*, *AI*, etc.")
+    st.image("https://compunnel.com/assets/img/logo.svg", width=180)
+    st.markdown("### 🧠 How it Works")
+    st.info("• Describe your project using natural language.\n\n• Mention data types (PHI, financial, personal) and regions (India, EU, USA).\n\n• Get matched compliance requirements instantly.")
 
-# Load compliance database
+# Load Google Sheet
 sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
@@ -25,13 +63,13 @@ except Exception as e:
     st.error("❌ Failed to load compliance database.")
     st.stop()
 
-# Input area
-st.markdown("### 📄 Describe Your Project")
-project_description = st.text_area("What does the project do?", height=180)
+# Input
+st.markdown("### 📄 Project Description", unsafe_allow_html=True)
+project_description = st.text_area("Enter your project brief below:", height=180)
 
 if st.button("🔍 Analyze Project"):
-    if project_description.strip() == "":
-        st.warning("Please enter a valid project description.")
+    if not project_description.strip():
+        st.warning("Please enter a valid description.")
         st.stop()
 
     text = project_description.lower()
@@ -39,97 +77,97 @@ if st.button("🔍 Analyze Project"):
     # Matching rules
     domains = {
         "healthcare": ["healthcare", "hospital", "patient", "medical", "clinic"],
-        "finance": ["bank", "finance", "credit card", "payment", "fintech", "investment", "lending"],
+        "finance": ["bank", "finance", "credit card", "payment", "fintech", "investment"],
         "ecommerce": ["ecommerce", "shopping", "online store", "retail"],
-        "ai solutions": ["ai", "artificial intelligence", "machine learning", "ml", "model", "llm", "b2b", "platform", "data science"],
+        "ai solutions": ["ai", "artificial intelligence", "machine learning", "llm", "model", "data science"],
     }
 
     data_types = {
-        "PHI": ["health data", "patient", "medical record", "phi", "doctor", "lab result", "clinical", "hospital", "diagnosis"],
-        "PII": ["personal data", "pii", "name", "address", "email", "phone", "aadhar", "dob", "identity"],
-        "financial": ["financial", "credit card", "bank", "transaction", "upi", "investment"],
+        "PHI": ["health data", "phi", "patient", "lab result", "medical", "clinical"],
+        "PII": ["personal data", "name", "address", "email", "aadhar", "pii", "dob"],
+        "financial": ["financial", "credit card", "bank", "transaction", "upi", "fintech"],
     }
 
     regions = {
-        "USA": ["usa", "united states", "america", "us"],
-        "EU": ["europe", "germany", "france", "eu", "european union"],
         "India": ["india", "indian", "bharat"],
-        "Canada": ["canada", "canadian"],
-        "Brazil": ["brazil", "brasil"],
+        "USA": ["usa", "united states", "america"],
+        "EU": ["europe", "eu", "germany", "france", "european union"],
+        "Canada": ["canada"],
+        "Brazil": ["brazil"],
     }
 
     def match_category(rules, text):
-        match_scores = {label: sum(kw in text for kw in keywords) for label, keywords in rules.items()}
-        return max(match_scores, key=match_scores.get) if match_scores else "Unknown"
+        return max(
+            rules.keys(),
+            key=lambda label: sum(kw in text for kw in rules[label]),
+            default="Unknown"
+        )
 
     matched_domain = match_category(domains, text)
     matched_data_type = match_category(data_types, text)
     matched_region = match_category(regions, text)
 
     # Match compliances
-    compliance_suggestions = []
+    compliance_matches = []
     for _, row in compliance_df.iterrows():
         domain = str(row['Domain']).lower()
-        applies_to = str(row['Applies To']).lower()
-        applies_to_list = [item.strip().lower() for item in applies_to.split(",")]
-        followed = str(row.get('Followed By Compunnel', '')).strip().lower() == "yes"
-        reason = row.get("Why Required", "").strip()
-        checklist = row.iloc[3:]
+        applies_to = [x.strip().lower() for x in str(row['Applies To']).split(",")]
+        followed = str(row['Followed By Compunnel']).strip().lower() == "yes"
+        reason = row.get("Why Required", "")
+        checklist = [item for item in row.iloc[3:6] if pd.notna(item)]
 
         if (
             matched_domain == domain or domain == "all"
         ) and (
-            matched_data_type.lower() in applies_to_list
-            or matched_region.lower() in applies_to_list
-            or "all" in applies_to_list
+            matched_data_type.lower() in applies_to
+            or matched_region.lower() in applies_to
+            or "all" in applies_to
         ):
-            compliance_suggestions.append({
+            compliance_matches.append({
                 "name": row['Compliance Name'],
                 "followed": followed,
                 "why": reason,
                 "checklist": checklist
             })
 
-    # Split into columns
+    # Layout in columns
     left, right = st.columns(2)
-
     with left:
         st.markdown("### 🧠 Detected Project Info")
-        st.info(f"**Domain**: {matched_domain}")
-        st.info(f"**Data Type**: {matched_data_type}")
-        st.info(f"**Geography**: {matched_region}")
+        st.markdown(f"<span class='badge badge-blue'>Domain: {matched_domain}</span>", unsafe_allow_html=True)
+        st.markdown(f"<span class='badge badge-blue'>Data Type: {matched_data_type}</span>", unsafe_allow_html=True)
+        st.markdown(f"<span class='badge badge-blue'>Region: {matched_region}</span>", unsafe_allow_html=True)
 
     with right:
-        st.markdown("### 📊 Compliance Overview")
-
-        if not compliance_suggestions:
-            st.warning("⚠️ No compliance frameworks matched this project.")
+        st.markdown("### 📊 Compliance Summary")
+        if not compliance_matches:
+            st.warning("⚠️ No compliance matched.")
         else:
-            already = [c for c in compliance_suggestions if c["followed"]]
-            missing = [c for c in compliance_suggestions if not c["followed"]]
+            already = [c for c in compliance_matches if c['followed']]
+            missing = [c for c in compliance_matches if not c['followed']]
 
-            st.markdown("✅ **Already Compliant With:**")
+            st.markdown("✅ **Already Compliant With**")
             if already:
                 for comp in already:
-                    st.success(f"🛡️ {comp['name']}")
+                    st.markdown(f"<span class='badge badge-green'>🛡️ {comp['name']}</span>", unsafe_allow_html=True)
             else:
-                st.warning("None are currently followed.")
+                st.info("None currently covered.")
 
-            st.markdown("❗ **Needs to be Implemented:**")
+            st.markdown("🚨 **To Be Implemented**")
             if missing:
                 for comp in missing:
-                    st.error(f"🚨 {comp['name']}")
+                    st.markdown(f"<span class='badge badge-red'>❗ {comp['name']}</span>", unsafe_allow_html=True)
                     if comp["why"]:
-                        st.info(f"💡 _Why_: {comp['why']}")
+                        st.caption(f"💡 Why: {comp['why']}")
 
-    st.markdown("---")
-    st.markdown("### 📋 Compliance Checklist")
+    st.markdown("### 📋 Detailed Checklist")
 
-    for c in compliance_suggestions:
-        with st.expander(f"{'🟢' if c['followed'] else '🔴'} {c['name']} Checklist", expanded=False):
-            for item in c["checklist"]:
-                if pd.notna(item) and item not in ["Yes", "No"]:
-                    icon = "✅" if c["followed"] else "⚠️"
-                    st.markdown(f"{icon} {item}")
-            if c["why"]:
-                st.caption(f"**Why Required**: {c['why']}")
+    for comp in compliance_matches:
+        with st.expander(f"{'🟢' if comp['followed'] else '🔴'} {comp['name']}"):
+            for item in comp['checklist']:
+                st.markdown(f"• {item}")
+            if comp['why']:
+                st.caption(f"💡 _Why Required_: {comp['why']}")
+
+# Footer
+st.markdown("<div class='footer'>© 2025 Compunnel Inc. | Built with ❤️ using Streamlit</div>", unsafe_allow_html=True)
