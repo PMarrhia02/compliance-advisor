@@ -160,8 +160,8 @@ if st.button("🔍 Analyze Project"):
             report_text += f"  Why Required: {comp['why']}\n"
         report_text += f"  Status: {'Followed ✅' if comp['followed'] else 'Not Followed ❌'}\n"
 
-    st.markdown("### 📥 Download Compliance Summary")
-    option = st.radio("Choose download format:", ["Text", "PDF"], key="download_option")
+       st.markdown("### 📥 Download Compliance Summary")
+    option = st.radio("Choose download format:", ["Text", "PDF"], key="format_choice")
 
     if option == "Text":
         st.download_button(
@@ -169,10 +169,13 @@ if st.button("🔍 Analyze Project"):
             data=report_text,
             file_name="compliance_summary.txt",
             mime="text/plain",
-            key="txt_dl"
+            key="text_dl"
         )
     else:
-        if st.button("🧾 Generate PDF"):
+        if "pdf_ready" not in st.session_state:
+            st.session_state["pdf_ready"] = False
+
+        if st.button("🧾 Generate PDF", key="generate_pdf"):
             buffer = BytesIO()
             pdf = canvas.Canvas(buffer, pagesize=A4)
             text_obj = pdf.beginText(40, 800)
@@ -181,16 +184,18 @@ if st.button("🔍 Analyze Project"):
             pdf.drawText(text_obj)
             pdf.save()
             buffer.seek(0)
-            st.session_state["pdf"] = buffer.read()
-            st.success("✅ PDF ready! Click below to download:")
+            st.session_state["pdf_data"] = buffer.read()
+            st.session_state["pdf_ready"] = True
+            st.success("✅ PDF generated! Now click download below.")
 
-        if "pdf" in st.session_state:
+        if st.session_state["pdf_ready"]:
             st.download_button(
                 label="⬇️ Download PDF",
-                data=st.session_state["pdf"],
+                data=st.session_state["pdf_data"],
                 file_name="compliance_summary.pdf",
                 mime="application/pdf",
-                key="pdf_dl"
+                key="download_pdf"
             )
+
 
 st.markdown("<div class='footer'>© 2025 Compunnel Inc. | Built with ❤️ using Streamlit</div>", unsafe_allow_html=True)
