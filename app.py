@@ -632,7 +632,7 @@ def main():
 # Footer
 st.markdown("""
     <div class='footer'>
-        <p>© 2025 Compunnel Digital | Compliance Advisor Pro v2.0</p>
+        <p>&copy; 2025 Compunnel Digital | Compliance Advisor Pro v2.0</p>
         <p>This tool provides general guidance only and does not constitute legal advice.</p>
     </div>
 """, unsafe_allow_html=True)
