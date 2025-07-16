@@ -630,6 +630,7 @@ def main():
         st.balloons()
 
 # Footer
+# Footer - properly formatted
 st.markdown("""
     <div class='footer'>
         <p>&copy; 2025 Compunnel Digital | Compliance Advisor Pro v2.0</p>
