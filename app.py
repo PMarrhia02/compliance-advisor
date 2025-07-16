@@ -7,7 +7,7 @@ st.set_page_config(page_title="Compliance Advisor", layout="wide")
 st.title("🔐 Compunnel AI-Powered Compliance Advisor")
 st.write("Enter your project brief to get a list of required compliances, matched against Compunnel's existing certifications.")
 
-# Load compliance database
+# Load from Google Sheet
 sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
@@ -18,7 +18,7 @@ except Exception as e:
     st.error("❌ Failed to load compliance database. Please check the sheet ID and sharing permissions.")
     st.stop()
 
-# Project input
+# Input
 project_description = st.text_area("📄 Project Description", height=200)
 
 if st.button("Analyze Project"):
@@ -28,7 +28,7 @@ if st.button("Analyze Project"):
 
     text = project_description.lower()
 
-    # Matching rules
+    # Keyword match rules
     domains = {
         "healthcare": ["healthcare", "hospital", "patient", "medical", "clinic"],
         "finance": ["bank", "finance", "credit card", "payment", "fintech", "investment", "lending"],
@@ -70,9 +70,7 @@ if st.button("Analyze Project"):
         applies_to_list = [item.strip() for item in applies_to.split(",")]
         followed = str(row.get('Followed By Compunnel', '')).strip().lower() == "yes"
         reason = row.get("Why Required", "").strip()
-        date_added = row.get("Date Added", "").strip()
-        trigger_alert = row.get("Trigger Alert", "").strip()
-        checklist = row.iloc[3:]  # starts from Checklist 1
+        checklist = row.iloc[3:]
 
         if (
             matched_domain == domain or domain == "all"
@@ -85,18 +83,16 @@ if st.button("Analyze Project"):
                 "name": row['Compliance Name'],
                 "followed": followed,
                 "why": reason,
-                "date_added": date_added,
-                "trigger_alert": trigger_alert,
                 "checklist": checklist
             })
 
-    # Show project info
+    # Display project info
     st.subheader("🔍 Detected Project Info")
     st.write(f"**Domain**: {matched_domain}")
     st.write(f"**Data Type**: {matched_data_type}")
     st.write(f"**Geography**: {matched_region}")
 
-    # Show compliance results
+    # Show results
     st.subheader("✅ Required Compliances for this Project")
 
     if not compliance_suggestions:
@@ -121,30 +117,13 @@ if st.button("Analyze Project"):
         else:
             st.info("All required compliances are already covered by Compunnel.")
 
-        # Show checklist and full info
+        # Checklist Section with Icons
         st.subheader("📋 Checklist for Each Compliance")
         for c in compliance_suggestions:
-            st.markdown(f"### 🛡️ {c['name']}")
-
-            # Checklist items
+            st.markdown(f"**🔒 {c['name']}**")
             checklist_items = [item for item in c["checklist"] if pd.notna(item) and item not in ["Yes", "No"]]
-            if checklist_items:
-                st.markdown("**Checklist Items:**")
-                for item in checklist_items:
-                    st.write(f"- {item}")
-
-            # Followed by Compunnel
-            followed_status = "✅ Yes" if c["followed"] else "❌ No"
-            st.markdown(f"**Followed By Compunnel**: {followed_status}")
-
-            # Why Required
+            status_icon = "✅" if c["followed"] else "⚠️"
+            for item in checklist_items:
+                st.write(f"{status_icon} {item}")
             if c["why"]:
-                st.markdown(f"**Why Required**: {c['why']}")
-
-            # Date Added
-            if c["date_added"]:
-                st.markdown(f"**Date Added**: {c['date_added']}")
-
-            # Trigger Alert
-            if c["trigger_alert"]:
-                st.markdown(f"**Trigger Alert**: {c['trigger_alert']}")
+                st.info(f"💡 _Why Required_: {c['why']}")
