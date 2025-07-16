@@ -209,4 +209,3 @@ if st.button("🔍 Analyze Project"):
 
 # Footer
 st.markdown("<div class='footer'>© 2025 Compunnel Inc. | Built with ❤️ using Streamlit</div>", unsafe_allow_html=True)
-check this code
