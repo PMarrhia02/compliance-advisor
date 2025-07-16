@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import re  # <-- NEW
 
 st.set_page_config(page_title="Compliance Advisor", layout="wide")
 st.title("🔐 Compunnel AI-Powered Compliance Advisor")
@@ -16,7 +17,7 @@ except Exception as e:
     st.error("❌ Failed to load compliance database. Please check the sheet ID and sharing permissions.")
     st.stop()
 
-# ---- Project Prompt Memory (Option 3: Save & Reuse Prompts) ----
+# ---- Saved Prompts Feature ----
 st.subheader("📁 Saved Project Prompts")
 
 if "saved_prompts" not in st.session_state:
@@ -67,10 +68,11 @@ if st.button("Analyze Project"):
         "Canada": ["canada", "canadian"]
     }
 
+    # ✅ NEW: Improved matching using regex (full word match)
     def match_category(rules, text):
         for label, keywords in rules.items():
             for word in keywords:
-                if word in text:
+                if re.search(rf"\b{re.escape(word)}\b", text):
                     return label
         return "Unknown"
 
@@ -78,7 +80,7 @@ if st.button("Analyze Project"):
     matched_data_type = match_category(data_types, text)
     matched_region = match_category(regions, text)
 
-    # Match Compliance from Sheet
+    # ---- Match Compliance from Sheet ----
     compliance_suggestions = []
 
     for _, row in compliance_df.iterrows():
@@ -94,7 +96,7 @@ if st.button("Analyze Project"):
         ):
             compliance_suggestions.append({
                 "name": row['Compliance Name'],
-                "checklist": row[3:6],  # You can adjust if more columns are added
+                "checklist": row[3:6],
                 "compunnel": row.get('Followed By Compunnel', 'No'),
                 "why": row.get("Why Required", "")
             })
@@ -104,14 +106,13 @@ if st.button("Analyze Project"):
     already_available = [c for c in compliance_suggestions if c["name"] in compunnel_compliances]
     missing_compliances = [c for c in compliance_suggestions if c["name"] not in compunnel_compliances]
 
-    # Display Results
+    # ---- Display Results ----
     st.subheader("🔍 Detected Project Info")
     st.write(f"**Domain**: {matched_domain}")
     st.write(f"**Data Type**: {matched_data_type}")
     st.write(f"**Geography**: {matched_region}")
 
     st.subheader("✅ Required Compliances for this Project")
-
     if compliance_suggestions:
         for c in compliance_suggestions:
             st.write(f"• {c['name']}")
