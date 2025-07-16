@@ -188,7 +188,6 @@ if st.button("🔍 Analyze Project"):
             mime="text/plain"
         )
     else:
-        # PDF generation using reportlab
         pdf_buffer = BytesIO()
         c = canvas.Canvas(pdf_buffer, pagesize=A4)
         textobject = c.beginText(40, 800)
@@ -196,10 +195,10 @@ if st.button("🔍 Analyze Project"):
             textobject.textLine(line)
         c.drawText(textobject)
         c.save()
-        pdf_data = pdf_buffer.getvalue()
+        pdf_buffer.seek(0)
         st.download_button(
             label="🧾 Download as PDF",
-            data=pdf_data,
+            data=pdf_buffer,
             file_name="compliance_summary.pdf",
             mime="application/pdf"
         )
