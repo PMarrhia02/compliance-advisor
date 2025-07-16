@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
-from io import StringIO
 
 # Set page config
 st.set_page_config(page_title="Compliance Advisor", layout="wide")
 
-# Header
+# Header styling
 st.markdown("""
     <style>
         .title {
@@ -161,46 +160,28 @@ if st.button("🔍 Analyze Project"):
                     if comp["why"]:
                         st.caption(f"💡 Why: {comp['why']}")
 
-    # Detailed checklist
     st.markdown("### 📋 Detailed Checklist")
+    report_text = f"Project Domain: {matched_domain}\nData Type: {matched_data_type}\nRegion: {matched_region}\n\n"
+
     for comp in compliance_matches:
         with st.expander(f"{'🟢' if comp['followed'] else '🔴'} {comp['name']}"):
             for item in comp['checklist']:
                 st.markdown(f"• {item}")
             if comp['why']:
                 st.caption(f"💡 _Why Required_: {comp['why']}")
+        # Append to downloadable report
+        report_text += f"\n{comp['name']}:\n"
+        for item in comp['checklist']:
+            report_text += f"  - {item}\n"
+        if comp['why']:
+            report_text += f"  Why Required: {comp['why']}\n"
+        report_text += f"  Status: {'Followed ✅' if comp['followed'] else 'Not Followed ❌'}\n"
 
-    # 📥 Downloadable report
+    # Download Button
     st.markdown("### 📥 Download Compliance Summary")
-
-    report_lines = [
-        "Compunnel AI-Powered Compliance Advisor - Report",
-        f"Project Description: {project_description}",
-        f"Domain: {matched_domain}",
-        f"Data Type: {matched_data_type}",
-        f"Region: {matched_region}",
-        "",
-        "Required Compliances:"
-    ]
-
-    for comp in compliance_matches:
-        status = "✅ Already Compliant" if comp["followed"] else "❗ Needs Implementation"
-        report_lines.append(f"\n{comp['name']} - {status}")
-        if comp["why"]:
-            report_lines.append(f"Why Required: {comp['why']}")
-        if comp["checklist"]:
-            report_lines.append("Checklist:")
-            for item in comp["checklist"]:
-                report_lines.append(f"  - {item}")
-
-    report_text = "\n".join(report_lines)
-    buffer = StringIO()
-    buffer.write(report_text)
-    buffer.seek(0)
-
     st.download_button(
         label="📄 Download Compliance Report",
-        data=buffer,
+        data=report_text,
         file_name="compliance_summary.txt",
         mime="text/plain"
     )
