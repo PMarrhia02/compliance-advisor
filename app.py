@@ -64,6 +64,8 @@ if st.button("Analyze Project"):
 
     # Match compliances
     compliance_suggestions = []
+    new_compliances = []
+
     for _, row in compliance_df.iterrows():
         domain = str(row['Domain']).lower()
         applies_to = str(row['Applies To']).lower()
@@ -71,7 +73,19 @@ if st.button("Analyze Project"):
         followed = str(row.get('Followed By Compunnel', '')).strip().lower() == "yes"
         reason = row.get("Why Required", "").strip()
         checklist = row.iloc[3:]
+        date_added = row.get("Date Added", "").strip()
+        alert = str(row.get("Trigger Alert", "")).strip().lower() == "yes"
 
+        # Alert for new compliance
+        if alert:
+            new_compliances.append({
+                "name": row['Compliance Name'],
+                "date": date_added,
+                "status": "✅ Eligible" if followed else "❗ Not Yet Eligible",
+                "reason": reason
+            })
+
+        # Check if relevant to project
         if (
             matched_domain == domain or domain == "all"
         ) and (
@@ -86,13 +100,13 @@ if st.button("Analyze Project"):
                 "checklist": checklist
             })
 
-    # Display project info
+    # Display detected info
     st.subheader("🔍 Detected Project Info")
     st.write(f"**Domain**: {matched_domain}")
     st.write(f"**Data Type**: {matched_data_type}")
     st.write(f"**Geography**: {matched_region}")
 
-    # Show results
+    # Show compliance suggestions
     st.subheader("✅ Required Compliances for this Project")
 
     if not compliance_suggestions:
@@ -111,7 +125,7 @@ if st.button("Analyze Project"):
         st.markdown("❗ **Needs to be Implemented for this Project:**")
         if missing_compliances:
             for comp in missing_compliances:
-                st.error(f"{comp['name']}")
+                st.error(comp["name"])
                 if comp["why"]:
                     st.info(f"💡 _Why Required_: {comp['why']}")
         else:
@@ -123,3 +137,12 @@ if st.button("Analyze Project"):
             for item in c["checklist"]:
                 if pd.notna(item):
                     st.write(f"- {item}")
+
+    # NEW COMPLIANCE SECTION
+    if new_compliances:
+        st.subheader("🆕 Newly Added Compliances (Monitored)")
+        for nc in new_compliances:
+            st.warning(f"**{nc['name']}** (🗓 Added on {nc['date']})")
+            st.write(f"🔍 Eligibility Status: {nc['status']}")
+            if nc["reason"]:
+                st.info(f"📌 _Why Required_: {nc['reason']}")
