@@ -4,10 +4,8 @@ from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
-# Set page config
 st.set_page_config(page_title="Compliance Advisor", layout="wide")
 
-# Header styling
 st.markdown("""
     <style>
         .title {
@@ -46,24 +44,21 @@ st.markdown("""
 st.markdown("<div class='title'>🔐 Compunnel AI-Powered Compliance Advisor</div>", unsafe_allow_html=True)
 st.markdown("Enter your project brief to see the cybersecurity and data protection compliances required, compared to what Compunnel already complies with.")
 
-# Sidebar
 with st.sidebar:
     st.image("https://compunnel.com/assets/img/logo.svg", width=180)
     st.markdown("### 🧠 How it Works")
     st.info("• Describe your project using natural language.\n\n• Mention data types (PHI, financial, personal) and regions (India, EU, USA).\n\n• Get matched compliance requirements instantly.")
 
-# Load Google Sheet
 sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
 try:
     compliance_df = pd.read_csv(sheet_url)
     st.success("✅ Compliance database loaded successfully.")
-except Exception as e:
+except:
     st.error("❌ Failed to load compliance database.")
     st.stop()
 
-# Input
 st.markdown("### 📄 Project Description", unsafe_allow_html=True)
 project_description = st.text_area("Enter your project brief below:", height=180)
 
@@ -74,7 +69,6 @@ if st.button("🔍 Analyze Project"):
 
     text = project_description.lower()
 
-    # Matching rules
     domains = {
         "healthcare": ["healthcare", "hospital", "patient", "medical", "clinic"],
         "finance": ["bank", "finance", "credit card", "payment", "fintech", "investment"],
@@ -97,17 +91,12 @@ if st.button("🔍 Analyze Project"):
     }
 
     def match_category(rules, text):
-        return max(
-            rules.keys(),
-            key=lambda label: sum(kw in text for kw in rules[label]),
-            default="Unknown"
-        )
+        return max(rules, key=lambda key: sum(word in text for word in rules[key]), default="Unknown")
 
     matched_domain = match_category(domains, text)
     matched_data_type = match_category(data_types, text)
     matched_region = match_category(regions, text)
 
-    # Match compliances
     compliance_matches = []
     for _, row in compliance_df.iterrows():
         domain = str(row['Domain']).lower()
@@ -130,7 +119,6 @@ if st.button("🔍 Analyze Project"):
                 "checklist": checklist
             })
 
-    # Layout in columns
     left, right = st.columns(2)
     with left:
         st.markdown("### 🧠 Detected Project Info")
@@ -147,18 +135,14 @@ if st.button("🔍 Analyze Project"):
             missing = [c for c in compliance_matches if not c['followed']]
 
             st.markdown("✅ **Already Compliant With**")
-            if already:
-                for comp in already:
-                    st.markdown(f"<span class='badge badge-green'>🛡️ {comp['name']}</span>", unsafe_allow_html=True)
-            else:
-                st.info("None currently covered.")
+            for comp in already:
+                st.markdown(f"<span class='badge badge-green'>🛡️ {comp['name']}</span>", unsafe_allow_html=True)
 
             st.markdown("🚨 **To Be Implemented**")
-            if missing:
-                for comp in missing:
-                    st.markdown(f"<span class='badge badge-red'>❗ {comp['name']}</span>", unsafe_allow_html=True)
-                    if comp["why"]:
-                        st.caption(f"💡 Why: {comp['why']}")
+            for comp in missing:
+                st.markdown(f"<span class='badge badge-red'>❗ {comp['name']}</span>", unsafe_allow_html=True)
+                if comp["why"]:
+                    st.caption(f"💡 Why: {comp['why']}")
 
     st.markdown("### 📋 Detailed Checklist")
     report_text = f"Project Domain: {matched_domain}\nData Type: {matched_data_type}\nRegion: {matched_region}\n\n"
@@ -176,9 +160,8 @@ if st.button("🔍 Analyze Project"):
             report_text += f"  Why Required: {comp['why']}\n"
         report_text += f"  Status: {'Followed ✅' if comp['followed'] else 'Not Followed ❌'}\n"
 
-    # 📥 Download Options
     st.markdown("### 📥 Download Compliance Summary")
-    option = st.radio("Choose download format:", ["Text", "PDF"], key="download_format")
+    option = st.radio("Choose download format:", ["Text", "PDF"], key="download_option")
 
     if option == "Text":
         st.download_button(
@@ -186,35 +169,28 @@ if st.button("🔍 Analyze Project"):
             data=report_text,
             file_name="compliance_summary.txt",
             mime="text/plain",
-            key="download_txt"
+            key="txt_dl"
         )
     else:
-        if "pdf_ready" not in st.session_state:
-            st.session_state.pdf_ready = False
-        if "pdf_data" not in st.session_state:
-            st.session_state.pdf_data = None
-
         if st.button("🧾 Generate PDF"):
-            pdf_buffer = BytesIO()
-            c = canvas.Canvas(pdf_buffer, pagesize=A4)
-            textobject = c.beginText(40, 800)
-            for line in report_text.split('\n'):
-                textobject.textLine(line)
-            c.drawText(textobject)
-            c.save()
-            pdf_buffer.seek(0)
-            st.session_state.pdf_data = pdf_buffer.getvalue()
-            st.session_state.pdf_ready = True
-            st.success("✅ PDF generated! Click below to download.")
+            buffer = BytesIO()
+            pdf = canvas.Canvas(buffer, pagesize=A4)
+            text_obj = pdf.beginText(40, 800)
+            for line in report_text.split("\n"):
+                text_obj.textLine(line)
+            pdf.drawText(text_obj)
+            pdf.save()
+            buffer.seek(0)
+            st.session_state["pdf"] = buffer.read()
+            st.success("✅ PDF ready! Click below to download:")
 
-        if st.session_state.get("pdf_ready"):
+        if "pdf" in st.session_state:
             st.download_button(
                 label="⬇️ Download PDF",
-                data=st.session_state["pdf_data"],
+                data=st.session_state["pdf"],
                 file_name="compliance_summary.pdf",
                 mime="application/pdf",
-                key="download_pdf"
+                key="pdf_dl"
             )
 
-# Footer
 st.markdown("<div class='footer'>© 2025 Compunnel Inc. | Built with ❤️ using Streamlit</div>", unsafe_allow_html=True)
