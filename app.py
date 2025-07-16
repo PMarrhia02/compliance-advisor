@@ -4,8 +4,10 @@ from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
+# Page setup
 st.set_page_config(page_title="Compliance Advisor", layout="wide")
 
+# Style and header
 st.markdown("""
     <style>
         .title {
@@ -44,11 +46,13 @@ st.markdown("""
 st.markdown("<div class='title'>🔐 Compunnel AI-Powered Compliance Advisor</div>", unsafe_allow_html=True)
 st.markdown("Enter your project brief to see the cybersecurity and data protection compliances required, compared to what Compunnel already complies with.")
 
+# Sidebar
 with st.sidebar:
     st.image("https://compunnel.com/assets/img/logo.svg", width=180)
     st.markdown("### 🧠 How it Works")
     st.info("• Describe your project using natural language.\n\n• Mention data types (PHI, financial, personal) and regions (India, EU, USA).\n\n• Get matched compliance requirements instantly.")
 
+# Load Google Sheet
 sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
@@ -59,6 +63,7 @@ except:
     st.error("❌ Failed to load compliance database.")
     st.stop()
 
+# Input
 st.markdown("### 📄 Project Description", unsafe_allow_html=True)
 project_description = st.text_area("Enter your project brief below:", height=180)
 
@@ -69,6 +74,7 @@ if st.button("🔍 Analyze Project"):
 
     text = project_description.lower()
 
+    # Matching logic
     domains = {
         "healthcare": ["healthcare", "hospital", "patient", "medical", "clinic"],
         "finance": ["bank", "finance", "credit card", "payment", "fintech", "investment"],
@@ -97,6 +103,7 @@ if st.button("🔍 Analyze Project"):
     matched_data_type = match_category(data_types, text)
     matched_region = match_category(regions, text)
 
+    # Match compliance
     compliance_matches = []
     for _, row in compliance_df.iterrows():
         domain = str(row['Domain']).lower()
@@ -119,6 +126,7 @@ if st.button("🔍 Analyze Project"):
                 "checklist": checklist
             })
 
+    # Display info
     left, right = st.columns(2)
     with left:
         st.markdown("### 🧠 Detected Project Info")
@@ -144,6 +152,7 @@ if st.button("🔍 Analyze Project"):
                 if comp["why"]:
                     st.caption(f"💡 Why: {comp['why']}")
 
+    # Checklist and Report
     st.markdown("### 📋 Detailed Checklist")
     report_text = f"Project Domain: {matched_domain}\nData Type: {matched_data_type}\nRegion: {matched_region}\n\n"
 
@@ -160,7 +169,8 @@ if st.button("🔍 Analyze Project"):
             report_text += f"  Why Required: {comp['why']}\n"
         report_text += f"  Status: {'Followed ✅' if comp['followed'] else 'Not Followed ❌'}\n"
 
-       st.markdown("### 📥 Download Compliance Summary")
+    # Download Options
+    st.markdown("### 📥 Download Compliance Summary")
     option = st.radio("Choose download format:", ["Text", "PDF"], key="format_choice")
 
     if option == "Text":
@@ -188,7 +198,7 @@ if st.button("🔍 Analyze Project"):
             st.session_state["pdf_ready"] = True
             st.success("✅ PDF generated! Now click download below.")
 
-        if st.session_state["pdf_ready"]:
+        if st.session_state.get("pdf_ready"):
             st.download_button(
                 label="⬇️ Download PDF",
                 data=st.session_state["pdf_data"],
@@ -197,5 +207,5 @@ if st.button("🔍 Analyze Project"):
                 key="download_pdf"
             )
 
-
+# Footer
 st.markdown("<div class='footer'>© 2025 Compunnel Inc. | Built with ❤️ using Streamlit</div>", unsafe_allow_html=True)
