@@ -631,12 +631,7 @@ def main():
 
 # Footer
 # Footer - properly formatted
-st.markdown("""
-    <div class='footer'>
-        <p>&copy; 2025 Compunnel Digital | Compliance Advisor Pro v2.0</p>
-        <p>This tool provides general guidance only and does not constitute legal advice.</p>
-    </div>
-""", unsafe_allow_html=True)
+st.markdown("<div class='footer'><p>&copy; 2025 Compunnel Digital</p></div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
