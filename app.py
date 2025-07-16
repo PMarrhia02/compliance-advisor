@@ -2,12 +2,58 @@ import streamlit as st
 import pandas as pd
 from io import StringIO
 
-# Page config
+# Set page config
 st.set_page_config(page_title="Compliance Advisor", layout="wide")
-st.title("🔐 Compunnel AI-Powered Compliance Advisor")
-st.write("Enter your project brief to get a list of required compliances, matched against Compunnel's existing certifications.")
 
-# Load from Google Sheet
+# Header
+st.markdown("""
+    <style>
+        .title {
+            font-size: 2.5em;
+            color: #003366;
+            font-weight: bold;
+        }
+        .section {
+            margin-top: 2rem;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.25em 0.6em;
+            font-size: 90%;
+            font-weight: 600;
+            border-radius: 0.25rem;
+        }
+        .badge-green {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .badge-red {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .badge-blue {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        .footer {
+            text-align: center;
+            font-size: 0.9em;
+            color: gray;
+            margin-top: 3rem;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("<div class='title'>🔐 Compunnel AI-Powered Compliance Advisor</div>", unsafe_allow_html=True)
+st.markdown("Enter your project brief to see the cybersecurity and data protection compliances required, compared to what Compunnel already complies with.")
+
+# Sidebar
+with st.sidebar:
+    st.image("https://compunnel.com/assets/img/logo.svg", width=180)
+    st.markdown("### 🧠 How it Works")
+    st.info("• Describe your project using natural language.\n\n• Mention data types (PHI, financial, personal) and regions (India, EU, USA).\n\n• Get matched compliance requirements instantly.")
+
+# Load Google Sheet
 sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
@@ -15,48 +61,48 @@ try:
     compliance_df = pd.read_csv(sheet_url)
     st.success("✅ Compliance database loaded successfully.")
 except Exception as e:
-    st.error("❌ Failed to load compliance database. Please check the sheet ID and sharing permissions.")
+    st.error("❌ Failed to load compliance database.")
     st.stop()
 
 # Input
-project_description = st.text_area("📄 Project Description", height=200)
+st.markdown("### 📄 Project Description", unsafe_allow_html=True)
+project_description = st.text_area("Enter your project brief below:", height=180)
 
-if st.button("Analyze Project"):
-    if project_description.strip() == "":
-        st.warning("Please enter a valid project description.")
+if st.button("🔍 Analyze Project"):
+    if not project_description.strip():
+        st.warning("Please enter a valid description.")
         st.stop()
 
     text = project_description.lower()
 
-    # Keyword match rules
+    # Matching rules
     domains = {
         "healthcare": ["healthcare", "hospital", "patient", "medical", "clinic"],
-        "finance": ["bank", "finance", "credit card", "payment", "fintech", "investment", "lending"],
+        "finance": ["bank", "finance", "credit card", "payment", "fintech", "investment"],
         "ecommerce": ["ecommerce", "shopping", "online store", "retail"],
-        "ai solutions": ["ai", "artificial intelligence", "machine learning", "ml", "model", "llm", "b2b", "platform", "data science"],
+        "ai solutions": ["ai", "artificial intelligence", "machine learning", "llm", "model", "data science"],
     }
 
     data_types = {
-        "PHI": ["health data", "patient", "medical record", "phi", "doctor", "lab result", "clinical", "hospital", "diagnosis"],
-        "PII": ["personal data", "sensitive personal data", "pii", "name", "address", "email", "phone", "aadhar", "dob", "identity"],
-        "financial": ["financial", "financial data", "bank account", "credit card", "payment", "transaction", "upi", "investment", "fintech"],
+        "PHI": ["health data", "phi", "patient", "lab result", "medical", "clinical"],
+        "PII": ["personal data", "name", "address", "email", "aadhar", "pii", "dob"],
+        "financial": ["financial", "credit card", "bank", "transaction", "upi", "fintech"],
     }
 
     regions = {
-        "USA": ["united states", "us", "usa", "america"],
-        "EU": ["europe", "germany", "france", "eu", "european union"],
         "India": ["india", "indian", "bharat"],
-        "Canada": ["canada", "canadian"],
-        "Brazil": ["brazil", "brasil"],
+        "USA": ["usa", "united states", "america"],
+        "EU": ["europe", "eu", "germany", "france", "european union"],
+        "Canada": ["canada"],
+        "Brazil": ["brazil"],
     }
 
     def match_category(rules, text):
-        match_scores = {}
-        for label, keywords in rules.items():
-            score = sum(kw in text for kw in keywords)
-            if score > 0:
-                match_scores[label] = score
-        return max(match_scores, key=match_scores.get) if match_scores else "Unknown"
+        return max(
+            rules.keys(),
+            key=lambda label: sum(kw in text for kw in rules[label]),
+            default="Unknown"
+        )
 
     matched_domain = match_category(domains, text)
     matched_data_type = match_category(data_types, text)
@@ -66,18 +112,17 @@ if st.button("Analyze Project"):
     compliance_matches = []
     for _, row in compliance_df.iterrows():
         domain = str(row['Domain']).lower()
-        applies_to = str(row['Applies To']).lower()
-        applies_to_list = [item.strip().lower() for item in applies_to.split(",")]
-        followed = str(row.get('Followed By Compunnel', '')).strip().lower() == "yes"
-        reason = row.get("Why Required", "").strip()
+        applies_to = [x.strip().lower() for x in str(row['Applies To']).split(",")]
+        followed = str(row['Followed By Compunnel']).strip().lower() == "yes"
+        reason = row.get("Why Required", "")
         checklist = [item for item in row.iloc[3:6] if pd.notna(item)]
 
         if (
             matched_domain == domain or domain == "all"
         ) and (
-            matched_data_type.lower() in applies_to_list
-            or matched_region.lower() in applies_to_list
-            or "all" in applies_to_list
+            matched_data_type.lower() in applies_to
+            or matched_region.lower() in applies_to
+            or "all" in applies_to
         ):
             compliance_matches.append({
                 "name": row['Compliance Name'],
@@ -86,84 +131,79 @@ if st.button("Analyze Project"):
                 "checklist": checklist
             })
 
-    # Display project info
-    st.subheader("🔍 Detected Project Info")
-    st.write(f"**Domain**: {matched_domain}")
-    st.write(f"**Data Type**: {matched_data_type}")
-    st.write(f"**Geography**: {matched_region}")
+    # Layout in columns
+    left, right = st.columns(2)
+    with left:
+        st.markdown("### 🧠 Detected Project Info")
+        st.markdown(f"<span class='badge badge-blue'>Domain: {matched_domain}</span>", unsafe_allow_html=True)
+        st.markdown(f"<span class='badge badge-blue'>Data Type: {matched_data_type}</span>", unsafe_allow_html=True)
+        st.markdown(f"<span class='badge badge-blue'>Region: {matched_region}</span>", unsafe_allow_html=True)
 
-    # Show compliance suggestions
-    st.subheader("✅ Required Compliances for this Project")
-
-    if not compliance_matches:
-        st.warning("⚠️ No compliance frameworks matched this project.")
-    else:
-        already = [c for c in compliance_matches if c["followed"]]
-        missing = [c for c in compliance_matches if not c["followed"]]
-
-        st.markdown("✅ **Already Compliant With:**")
-        if already:
-            for comp in already:
-                st.success(comp["name"])
+    with right:
+        st.markdown("### 📊 Compliance Summary")
+        if not compliance_matches:
+            st.warning("⚠️ No compliance matched.")
         else:
-            st.warning("None of the matched compliances are currently covered.")
+            already = [c for c in compliance_matches if c['followed']]
+            missing = [c for c in compliance_matches if not c['followed']]
 
-        st.markdown("❗ **Needs to be Implemented for this Project:**")
-        if missing:
-            for comp in missing:
-                st.error(f"{comp['name']}")
-                if comp["why"]:
-                    st.info(f"💡 _Why Required_: {comp['why']}")
-        else:
-            st.info("All required compliances are already covered by Compunnel.")
+            st.markdown("✅ **Already Compliant With**")
+            if already:
+                for comp in already:
+                    st.markdown(f"<span class='badge badge-green'>🛡️ {comp['name']}</span>", unsafe_allow_html=True)
+            else:
+                st.info("None currently covered.")
 
-        # Checklist
-        st.subheader("📋 Checklist for Each Compliance")
-        for comp in compliance_matches:
-            with st.expander(f"{'🟢' if comp['followed'] else '🔴'} {comp['name']}"):
-                for item in comp["checklist"]:
-                    st.write(f"- {item}")
-                if comp["why"]:
-                    st.markdown(f"**Why Required**: _{comp['why']}_")
+            st.markdown("🚨 **To Be Implemented**")
+            if missing:
+                for comp in missing:
+                    st.markdown(f"<span class='badge badge-red'>❗ {comp['name']}</span>", unsafe_allow_html=True)
+                    if comp["why"]:
+                        st.caption(f"💡 Why: {comp['why']}")
 
-        # Downloadable report
-        report_lines = []
-        report_lines.append("🔐 Compunnel AI-Powered Compliance Advisor Report")
-        report_lines.append("=" * 50)
-        report_lines.append(f"\n📄 Project Description:\n{project_description}")
-        report_lines.append(f"\n🧠 Detected Domain: {matched_domain}")
-        report_lines.append(f"🧠 Data Type: {matched_data_type}")
-        report_lines.append(f"🧠 Region: {matched_region}\n")
-
-        report_lines.append("✅ Already Compliant With:")
-        if already:
-            for comp in already:
-                report_lines.append(f" - {comp['name']}")
-        else:
-            report_lines.append(" - None")
-
-        report_lines.append("\n❗ Needs to be Implemented:")
-        if missing:
-            for comp in missing:
-                report_lines.append(f" - {comp['name']}")
-                if comp['why']:
-                    report_lines.append(f"   Why Required: {comp['why']}")
-        else:
-            report_lines.append(" - All required compliances are covered.")
-
-        report_lines.append("\n📋 Checklist for Each Compliance:")
-        for comp in compliance_matches:
-            report_lines.append(f"\n🔹 {comp['name']}:")
+    # Detailed checklist
+    st.markdown("### 📋 Detailed Checklist")
+    for comp in compliance_matches:
+        with st.expander(f"{'🟢' if comp['followed'] else '🔴'} {comp['name']}"):
             for item in comp['checklist']:
-                report_lines.append(f"   - {item}")
+                st.markdown(f"• {item}")
             if comp['why']:
-                report_lines.append(f"   💡 Why: {comp['why']}")
+                st.caption(f"💡 _Why Required_: {comp['why']}")
 
-        report_text = "\n".join(report_lines)
+    # 📥 Downloadable report
+    st.markdown("### 📥 Download Compliance Summary")
 
-        st.download_button(
-            label="📥 Download Report as Text",
-            data=report_text,
-            file_name="compliance_report.txt",
-            mime="text/plain"
-        )
+    report_lines = [
+        "Compunnel AI-Powered Compliance Advisor - Report",
+        f"Project Description: {project_description}",
+        f"Domain: {matched_domain}",
+        f"Data Type: {matched_data_type}",
+        f"Region: {matched_region}",
+        "",
+        "Required Compliances:"
+    ]
+
+    for comp in compliance_matches:
+        status = "✅ Already Compliant" if comp["followed"] else "❗ Needs Implementation"
+        report_lines.append(f"\n{comp['name']} - {status}")
+        if comp["why"]:
+            report_lines.append(f"Why Required: {comp['why']}")
+        if comp["checklist"]:
+            report_lines.append("Checklist:")
+            for item in comp["checklist"]:
+                report_lines.append(f"  - {item}")
+
+    report_text = "\n".join(report_lines)
+    buffer = StringIO()
+    buffer.write(report_text)
+    buffer.seek(0)
+
+    st.download_button(
+        label="📄 Download Compliance Report",
+        data=buffer,
+        file_name="compliance_summary.txt",
+        mime="text/plain"
+    )
+
+# Footer
+st.markdown("<div class='footer'>© 2025 Compunnel Inc. | Built with ❤️ using Streamlit</div>", unsafe_allow_html=True)
