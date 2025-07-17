@@ -182,7 +182,8 @@ if st.button("🔍 Analyze Project"):
             key="text_dl"
         )
     else:
-        if "pdf_ready" not in st.session_state:
+        if "pdf_data" not in st.session_state:
+            st.session_state["pdf_data"] = None
             st.session_state["pdf_ready"] = False
 
         if st.button("🧾 Generate PDF", key="generate_pdf"):
@@ -191,6 +192,10 @@ if st.button("🔍 Analyze Project"):
             text_obj = pdf.beginText(40, 800)
             for line in report_text.split("\n"):
                 text_obj.textLine(line)
+                if text_obj.getY() < 40:
+                    pdf.drawText(text_obj)
+                    pdf.showPage()
+                    text_obj = pdf.beginText(40, 800)
             pdf.drawText(text_obj)
             pdf.save()
             buffer.seek(0)
@@ -198,7 +203,7 @@ if st.button("🔍 Analyze Project"):
             st.session_state["pdf_ready"] = True
             st.success("✅ PDF generated! Now click download below.")
 
-        if st.session_state.get("pdf_ready"):
+        if st.session_state.get("pdf_ready") and st.session_state.get("pdf_data"):
             st.download_button(
                 label="⬇️ Download PDF",
                 data=st.session_state["pdf_data"],
