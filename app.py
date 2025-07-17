@@ -66,104 +66,94 @@ project_description = st.text_area(
 
 # Analysis functions
 def match_category(text, categories):
-    text = text.lower().strip()
+    text = text.lower()
     scores = {k: 0 for k in categories}
     
-    # Define synonyms for better matching
-    synonyms = {
-        "healthcare": ["health", "medical", "hospital", "patient", "clinical"],
-        "finance": ["financial", "banking", "payment", "transaction", "money"],
-        "ai solutions": ["ai", "artificial intelligence", "machine learning", "ml"],
-        "govt/defense": ["government", "defense", "military", "public sector"],
-        "PHI": ["protected health information", "health data", "medical record", "patient data"],
-        "PII": ["personal information", "personal data", "identity", "name", "email"],
-        "financial": ["credit card", "bank account", "financial data"],
-        "India": ["indian", "india-based"],
-        "USA": ["united states", "america", "us"],
-        "EU": ["europe", "european union", "gdpr"],
-        "Canada": ["canadian"],
-        "Brazil": ["brazilian"],
-        "global": ["international", "worldwide"]
-    }
-    
-    # Calculate scores based on keyword and synonym matches
+    # Calculate scores based on keyword matches
     for category, keywords in categories.items():
-        # Add synonyms to keywords for this category
-        all_keywords = keywords + synonyms.get(category, [])
-        for term in all_keywords:
+        for term in keywords:
+            # Assign higher weight to exact matches, lower for partial
             if term in text:
-                # Weight by term length and exactness
-                score = len(term.split()) * 2  # Longer phrases get higher weight
-                if term == text:  # Exact match
-                    score *= 3
-                elif text.startswith(term) or text.endswith(term):  # Prefix/suffix match
-                    score *= 1.5
-                scores[category] += score
+                scores[category] += 2 if term == text.strip() else 1
     
-    # Normalize scores by total possible matches to avoid bias
+    # Normalize scores by number of keywords to avoid bias toward categories with more keywords
     for category in scores:
-        total_keywords = len(categories[category]) + len(synonyms.get(category, []))
-        if total_keywords > 0:
-            scores[category] = scores[category] / total_keywords
+        if categories[category]:  # Avoid division by zero
+            scores[category] = scores[category] / len(categories[category])
     
-    # Select category with highest score, with a minimum threshold
+    # Find the category with the highest score
     max_score = max(scores.values())
-    if max_score > 0.1:  # Require a minimum score to avoid weak matches
+    if max_score > 0:
         return max(scores, key=scores.get)
     else:
-        # Fallback to most specific category based on context
+        # Fallback: If no keywords match, use the first non-empty category or "all"/"global"
         for category in categories:
-            if category not in ["all", "global"] and scores[category] > 0:
+            if category in ["all", "global"]:
                 return category
-        return "global" if "global" in categories else list(categories.keys())[0]
+        return list(categories.keys())[0]  # Default to first category if no "all"/"global"
 
 def analyze_project(description):
     # Define matching categories
     domains = {
-        "healthcare": ["healthcare", "hospital", "patient", "medical"],
-        "finance": ["bank", "finance", "payment"],
-        "ai solutions": ["ai", "artificial intelligence"],
-        "govt/defense": ["government", "defense", "military"],
+        "healthcare": ["healthcare", "hospital", "patient", "medical", "health", "phi"],
+        "finance": ["bank", "finance", "payment", "financial", "pci", "credit card"],
+        "ai solutions": ["ai", "artificial intelligence", "machine learning", "ml"],
+        "govt/defense": ["government", "defense", "military", "public sector"],
         "all": []
     }
     
     data_types = {
-        "PHI": ["phi", "health data", "medical record"],
-        "PII": ["pii", "personal data", "name", "email"],
-        "financial": ["financial", "credit card", "transaction"]
+        "PHI": ["phi", "health data", "medical record", "patient data"],
+        "PII": ["pii", "personal data", "name", "email", "address", "phone"],
+        "financial": ["financial", "credit card", "transaction", "bank account"],
+        "sensitive": ["sensitive", "confidential", "proprietary"]
     }
     
     regions = {
         "India": ["india", "indian"],
-        "USA": ["usa", "united states"],
-        "EU": ["eu", "europe"],
+        "USA": ["usa", "united states", "us"],
+        "EU": ["eu", "europe", "gdpr"],
         "Canada": ["canada"],
-        "Brazil": ["brazil"],
-        "global": ["global", "international"]
+        "Brazil": ["brazil", "lgpd"],
+        "global": ["global", "international", "worldwide"]
     }
-    
-    # Process compliance items
-    compliance_matches = []
-    for _, row in compliance_df.iterrows():
-        checklist = [str(item) for item in [
-            row['Checklist 1'], row['Checklist 2'], row['Checklist 3']
-        ] if pd.notna(item)]
-        
-        compliance_matches.append({
-            "name": row['Compliance Name'],
-            "domain": str(row['Domain']).lower(),
-            "applies_to": [x.strip().lower() for x in str(row['Applies To']).split(",")],
-            "followed": str(row['Followed By Compunnel']).strip().lower() == "yes",
-            "priority": "High" if str(row.get('Priority', '')).strip().lower() == "high" else "Standard",
-            "alert": str(row.get('Trigger Alert', 'No')).strip().lower() == "yes",
-            "checklist": checklist,
-            "why": row.get("Why Required", "")
-        })
     
     # Match project to categories
     matched_domain = match_category(description, domains)
     matched_data_type = match_category(description, data_types)
     matched_region = match_category(description, regions)
+    
+    # Filter compliance items based on matched categories
+    compliance_matches = []
+    for _, row in compliance_df.iterrows():
+        # Check if this compliance applies to our matched domain
+        row_domains = [x.strip().lower() for x in str(row['Domain']).split(",")]
+        domain_match = "all" in row_domains or matched_domain in row_domains
+        
+        # Check if this compliance applies to our matched region/data type
+        applies_to = [x.strip().lower() for x in str(row['Applies To']).split(",")]
+        applies_match = (
+            "all" in applies_to or 
+            matched_region.lower() in applies_to or 
+            matched_data_type.lower() in applies_to
+        )
+        
+        # Only include if matches domain AND applies_to criteria
+        if domain_match and applies_match:
+            checklist = [str(item) for item in [
+                row['Checklist 1'], row['Checklist 2'], row['Checklist 3']
+            ] if pd.notna(item)]
+            
+            compliance_matches.append({
+                "name": row['Compliance Name'],
+                "domain": str(row['Domain']).lower(),
+                "applies_to": applies_to,
+                "followed": str(row['Followed By Compunnel']).strip().lower() == "yes",
+                "priority": "High" if str(row.get('Priority', '')).strip().lower() == "high" else "Standard",
+                "alert": str(row.get('Trigger Alert', 'No')).strip().lower() == "yes",
+                "checklist": checklist,
+                "why": row.get("Why Required", "")
+            })
     
     return {
         "domain": matched_domain,
@@ -274,6 +264,16 @@ if st.button("🔍 Analyze Compliance", type="primary"):
             high_pri = len([c for c in pending if c['priority'] == "High"])
             st.metric("High Priority Items", high_pri)
             st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Show matched categories
+        st.markdown("### 📌 Detected Project Attributes")
+        att_col1, att_col2, att_col3 = st.columns(3)
+        with att_col1:
+            st.markdown(f"**Domain:** <span class='badge badge-blue'>{results['domain'].title()}</span>", unsafe_allow_html=True)
+        with att_col2:
+            st.markdown(f"**Data Type:** <span class='badge badge-blue'>{results['data_type']}</span>", unsafe_allow_html=True)
+        with att_col3:
+            st.markdown(f"**Region:** <span class='badge badge-blue'>{results['region'].title()}</span>", unsafe_allow_html=True)
         
         # Priority Matrix
         st.markdown("### 🚨 Priority Matrix")
