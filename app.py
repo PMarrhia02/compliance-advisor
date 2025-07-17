@@ -171,9 +171,23 @@ if st.button("🔍 Analyze Project"):
 
     # Download Options
     st.markdown("### 📥 Download Compliance Summary")
-    option = st.radio("Choose download format:", ["Text", "PDF"], key="format_choice")
+    
+    # Use session state to remember the selected format
+    if 'format_choice' not in st.session_state:
+        st.session_state.format_choice = "Text"
+    
+    # Create radio buttons without triggering rerun
+    format_choice = st.radio(
+        "Choose download format:", 
+        ["Text", "PDF"], 
+        key="format_choice",
+        index=0 if st.session_state.format_choice == "Text" else 1
+    )
+    
+    # Update session state
+    st.session_state.format_choice = format_choice
 
-    if option == "Text":
+    if format_choice == "Text":
         st.download_button(
             label="📄 Download as TXT",
             data=report_text,
@@ -182,35 +196,34 @@ if st.button("🔍 Analyze Project"):
             key="text_dl"
         )
     else:
-        if "pdf_data" not in st.session_state:
-            st.session_state["pdf_data"] = None
-            st.session_state["pdf_ready"] = False
-
-        if st.button("🧾 Generate PDF", key="generate_pdf"):
-            buffer = BytesIO()
-            pdf = canvas.Canvas(buffer, pagesize=A4)
-            text_obj = pdf.beginText(40, 800)
-            for line in report_text.split("\n"):
+        # Generate PDF immediately when PDF option is selected
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=A4)
+        text_obj = pdf.beginText(40, 800)
+        text_obj.setFont("Helvetica", 10)
+        
+        # Split long lines to prevent text cutoff
+        for line in report_text.split("\n"):
+            # Simple line wrapping - for more complex cases consider using textwrap
+            if len(line) > 100:
+                parts = [line[i:i+100] for i in range(0, len(line), 100)]
+                for part in parts:
+                    text_obj.textLine(part)
+            else:
                 text_obj.textLine(line)
-                if text_obj.getY() < 40:
-                    pdf.drawText(text_obj)
-                    pdf.showPage()
-                    text_obj = pdf.beginText(40, 800)
-            pdf.drawText(text_obj)
-            pdf.save()
-            buffer.seek(0)
-            st.session_state["pdf_data"] = buffer.read()
-            st.session_state["pdf_ready"] = True
-            st.success("✅ PDF generated! Now click download below.")
+        
+        pdf.drawText(text_obj)
+        pdf.save()
+        buffer.seek(0)
+        pdf_data = buffer.getvalue()
 
-        if st.session_state.get("pdf_ready") and st.session_state.get("pdf_data"):
-            st.download_button(
-                label="⬇️ Download PDF",
-                data=st.session_state["pdf_data"],
-                file_name="compliance_summary.pdf",
-                mime="application/pdf",
-                key="download_pdf"
-            )
+        st.download_button(
+            label="⬇️ Download PDF",
+            data=pdf_data,
+            file_name="compliance_summary.pdf",
+            mime="application/pdf",
+            key="download_pdf"
+        )
 
 # Footer
 st.markdown("<div class='footer'>© 2025 Compunnel Inc. | Built with ❤️ using Streamlit</div>", unsafe_allow_html=True)
