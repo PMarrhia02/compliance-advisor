@@ -207,9 +207,10 @@ if st.button("🔍 Analyze Compliance", type="primary"):
         st.success("Analysis complete!")
         
         # Show summary metrics
+        # Show summary metrics
         met = [c for c in results['compliance_matches'] if c['followed']]
         pending = [c for c in results['compliance_matches'] if not c['followed']]
-        score = int((len(met) / len(results['compliance_matches'])) * 100 if results['compliance_matches'] else 0
+        score = int((len(met) / len(results['compliance_matches'])) * 100) if results['compliance_matches'] else 0
         
         col1, col2, col3 = st.columns(3)
         with col1:
