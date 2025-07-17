@@ -66,31 +66,56 @@ project_description = st.text_area(
 
 # Analysis functions
 def match_category(text, categories):
-    text = text.lower()
+    text = text.lower().strip()
     scores = {k: 0 for k in categories}
     
-    # Calculate scores based on keyword matches
+    # Define synonyms for better matching
+    synonyms = {
+        "healthcare": ["health", "medical", "hospital", "patient", "clinical"],
+        "finance": ["financial", "banking", "payment", "transaction", "money"],
+        "ai solutions": ["ai", "artificial intelligence", "machine learning", "ml"],
+        "govt/defense": ["government", "defense", "military", "public sector"],
+        "PHI": ["protected health information", "health data", "medical record", "patient data"],
+        "PII": ["personal information", "personal data", "identity", "name", "email"],
+        "financial": ["credit card", "bank account", "financial data"],
+        "India": ["indian", "india-based"],
+        "USA": ["united states", "america", "us"],
+        "EU": ["europe", "european union", "gdpr"],
+        "Canada": ["canadian"],
+        "Brazil": ["brazilian"],
+        "global": ["international", "worldwide"]
+    }
+    
+    # Calculate scores based on keyword and synonym matches
     for category, keywords in categories.items():
-        for term in keywords:
-            # Assign higher weight to exact matches, lower for partial
+        # Add synonyms to keywords for this category
+        all_keywords = keywords + synonyms.get(category, [])
+        for term in all_keywords:
             if term in text:
-                scores[category] += 2 if term == text.strip() else 1
+                # Weight by term length and exactness
+                score = len(term.split()) * 2  # Longer phrases get higher weight
+                if term == text:  # Exact match
+                    score *= 3
+                elif text.startswith(term) or text.endswith(term):  # Prefix/suffix match
+                    score *= 1.5
+                scores[category] += score
     
-    # Normalize scores by number of keywords to avoid bias toward categories with more keywords
+    # Normalize scores by total possible matches to avoid bias
     for category in scores:
-        if categories[category]:  # Avoid division by zero
-            scores[category] = scores[category] / len(categories[category])
+        total_keywords = len(categories[category]) + len(synonyms.get(category, []))
+        if total_keywords > 0:
+            scores[category] = scores[category] / total_keywords
     
-    # Find the category with the highest score
+    # Select category with highest score, with a minimum threshold
     max_score = max(scores.values())
-    if max_score > 0:
+    if max_score > 0.1:  # Require a minimum score to avoid weak matches
         return max(scores, key=scores.get)
     else:
-        # Fallback: If no keywords match, use the first non-empty category or "all"/"global"
+        # Fallback to most specific category based on context
         for category in categories:
-            if category in ["all", "global"]:
+            if category not in ["all", "global"] and scores[category] > 0:
                 return category
-        return list(categories.keys())[0]  # Default to first category if no "all"/"global"
+        return "global" if "global" in categories else list(categories.keys())[0]
 
 def analyze_project(description):
     # Define matching categories
