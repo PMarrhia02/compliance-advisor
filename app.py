@@ -169,42 +169,37 @@ if st.button("🔍 Analyze Project"):
             report_text += f"  Why Required: {comp['why']}\n"
         report_text += f"  Status: {'Followed ✅' if comp['followed'] else 'Not Followed ❌'}\n"
 
-    # Download Options
+    # Store report text in session state
+    st.session_state.report_text = report_text
+
+# Download Options (moved outside the Analyze Project block)
+if 'report_text' in st.session_state:
     st.markdown("### 📥 Download Compliance Summary")
     
-    # Use session state to remember the selected format
-    if 'format_choice' not in st.session_state:
-        st.session_state.format_choice = "Text"
-    
-    # Create radio buttons without triggering rerun
+    # Create radio buttons for format selection
     format_choice = st.radio(
         "Choose download format:", 
         ["Text", "PDF"], 
-        key="format_choice",
-        index=0 if st.session_state.format_choice == "Text" else 1
+        key="format_choice"
     )
     
-    # Update session state
-    st.session_state.format_choice = format_choice
-
     if format_choice == "Text":
         st.download_button(
             label="📄 Download as TXT",
-            data=report_text,
+            data=st.session_state.report_text,
             file_name="compliance_summary.txt",
             mime="text/plain",
             key="text_dl"
         )
     else:
-        # Generate PDF immediately when PDF option is selected
+        # Generate PDF when PDF option is selected
         buffer = BytesIO()
         pdf = canvas.Canvas(buffer, pagesize=A4)
         text_obj = pdf.beginText(40, 800)
         text_obj.setFont("Helvetica", 10)
         
         # Split long lines to prevent text cutoff
-        for line in report_text.split("\n"):
-            # Simple line wrapping - for more complex cases consider using textwrap
+        for line in st.session_state.report_text.split("\n"):
             if len(line) > 100:
                 parts = [line[i:i+100] for i in range(0, len(line), 100)]
                 for part in parts:
