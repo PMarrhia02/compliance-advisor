@@ -1,16 +1,11 @@
-streamlit
-pandas
-reportlab
-plotly>=5.0.0
-gspread
-oauth2client
-python-dotenv
+streamlit==1.32.0
+pandas==2.1.4
+reportlab==4.0.4
 streamlit-authenticator==0.2.3
-bcrypt==4.0.1
-matplotlib 
-feedparser
-transformers
-torch>=1.13.0  # Required for transformers
-sentencepiece>=0.1.95  # Required for some transformer models
-protobuf>=3.20.0 
-Pillow
+feedparser==6.0.10
+matplotlib==3.7.1
+transformers==4.30.2
+torch==2.0.1
+python-dotenv==1.0.0
+gspread==5.11.0
+oauth2client==4.1.3
