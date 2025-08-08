@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import pandas as pd
 from io import BytesIO
@@ -32,14 +33,31 @@ st.markdown("""
 st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow_html=True)
 st.markdown("AI-powered compliance analysis for your exact requirements")
 
-# User Authentication
+# --- USER AUTHENTICATION ---
 # Define user credentials (hashed passwords)
 names = ['Admin']
 usernames = ['admin']
-passwords = [bcrypt.hashpw("password".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')]  # Store hashed password
+passwords = [bcrypt.hashpw("password".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')]
 
-# Create an authenticator object
-authenticator = stauth.Authenticate(names, usernames, passwords, 'some_cookie_name', 'some_signature_key', cookie_expiry_days=30)
+# Create a config dictionary for streamlit_authenticator
+config = {
+    'cookie': {
+        'name': 'some_cookie_name',
+        'key': 'some_signature_key',
+        'expiry_days': 30
+    },
+    'credentials': {
+        'usernames': {
+            usernames[0]: {
+                'name': names[0],
+                'password': passwords[0]
+            }
+        }
+    }
+}
+
+# Create an authenticator object with the new config
+authenticator = stauth.Authenticate(config)
 
 # Login
 name, authentication_status = authenticator.login('Login', 'main')
@@ -388,3 +406,4 @@ if authentication_status:
     # Footer
     st.markdown("---")
     st.markdown("<div class='footer'>© 2025 Compliance Advisor Pro</div>", unsafe_allow_html=True)
+```
