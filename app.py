@@ -53,7 +53,7 @@ config = {
     }
 }
 
-# Create an authenticator object with the new config
+# Create an authenticator object with the correct config
 try:
     authenticator = stauth.Authenticate(config)
 except KeyError as e:
