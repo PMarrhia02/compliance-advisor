@@ -6,8 +6,6 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.units import inch
-import streamlit_authenticator as stauth
-import bcrypt
 
 # Page setup
 st.set_page_config(page_title="Compliance Advisor Pro", layout="wide")
@@ -32,51 +30,24 @@ st.markdown("""
 st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow_html=True)
 st.markdown("AI-powered compliance analysis for your exact requirements")
 
-# --- USER AUTHENTICATION ---
-# Hash the password
-hashed_password = stauth.Hasher(['password']).generate()[0]
+# User Authentication
+if 'username' not in st.session_state:
+    st.session_state.username = None
 
-# Correct configuration structure
-config = {
-    'credentials': {
-        'usernames': {
-            'admin': {
-                'email': 'admin@example.com',
-                'name': 'Admin',
-                'password': hashed_password
-            }
-        }
-    },
-    'cookie': {
-        'name': 'compliance_cookie',
-        'key': 'some_random_signature_key',
-        'expiry_days': 30
-    },
-    'preauthorized': {
-        'emails': ['admin@example.com']
-    }
-}
-
-# Create authenticator object
-try:
-    authenticator = stauth.Authenticate(
-        config['credentials'],
-        config['cookie']['name'],
-        config['cookie']['key'],
-        config['cookie']['expiry_days'],
-        config['preauthorized']
-    )
-except Exception as e:
-    st.error(f"Authentication setup failed: {str(e)}")
-    st.stop()
-
-# Login
-name, authentication_status, username = authenticator.login('Login', 'main')
-
-if authentication_status:
-    authenticator.logout('Logout', 'sidebar')
-    st.sidebar.title(f"Welcome {name}")
+if st.session_state.username is None:
+    st.subheader("Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
     
+    if st.button("Login"):
+        if username == "admin" and password == "password":  # Replace with secure authentication
+            st.session_state.username = username
+            st.success("Logged in successfully!")
+        else:
+            st.error("Invalid username or password.")
+else:
+    st.success(f"Welcome, {st.session_state.username}!")
+
     # Load data from Google Sheets
     @st.cache_data
     def load_data():
@@ -119,23 +90,28 @@ if authentication_status:
         # Calculate scores based on keyword matches
         for category, keywords in categories.items():
             for term in keywords:
+                # Assign higher weight to exact matches, lower for partial
                 if term in text:
                     scores[category] += 2 if term == text.strip() else 1
         
+        # Normalize scores by number of keywords to avoid bias toward categories with more keywords
         for category in scores:
-            if categories[category]:
+            if categories[category]:  # Avoid division by zero
                 scores[category] = scores[category] / len(categories[category])
         
+        # Find the category with the highest score
         max_score = max(scores.values())
         if max_score > 0:
             return max(scores, key=scores.get)
         else:
+            # Fallback: If no keywords match, use the first non-empty category or "all"/"global"
             for category in categories:
                 if category in ["all", "global"]:
                     return category
-            return list(categories.keys())[0]
+            return list(categories.keys())[0]  # Default to first category if no "all"/"global"
 
     def analyze_project(description):
+        # Define matching categories
         domains = {
             "healthcare": ["healthcare", "hospital", "patient", "medical", "health", "phi"],
             "finance": ["bank", "finance", "payment", "financial", "pci", "credit card"],
@@ -160,15 +136,19 @@ if authentication_status:
             "global": ["global", "international", "worldwide"]
         }
         
+        # Match project to categories
         matched_domain = match_category(description, domains)
         matched_data_type = match_category(description, data_types)
         matched_region = match_category(description, regions)
         
+        # Filter compliance items based on matched categories
         compliance_matches = []
         for _, row in compliance_df.iterrows():
+            # Check if this compliance applies to our matched domain
             row_domains = [x.strip().lower() for x in str(row['Domain']).split(",")]
             domain_match = "all" in row_domains or matched_domain in row_domains
             
+            # Check if this compliance applies to our matched region/data type
             applies_to = [x.strip().lower() for x in str(row['Applies To']).split(",")]
             applies_match = (
                 "all" in applies_to or 
@@ -176,6 +156,7 @@ if authentication_status:
                 matched_data_type.lower() in applies_to
             )
             
+            # Only include if matches domain AND applies_to criteria
             if domain_match and applies_match:
                 checklist = [str(item) for item in [
                     row['Checklist 1'], row['Checklist 2'], row['Checklist 3']
@@ -206,9 +187,11 @@ if authentication_status:
         styles = getSampleStyleSheet()
         story = []
         
+        # Title
         story.append(Paragraph("Compliance Assessment Report", styles['Title']))
         story.append(Spacer(1, 12))
         
+        # Project Info
         story.append(Paragraph("Project Details", styles['Heading2']))
         story.append(Paragraph(f"""
             <b>Domain:</b> {project_info['domain']}<br/>
@@ -217,6 +200,7 @@ if authentication_status:
         """, styles['BodyText']))
         story.append(Spacer(1, 24))
         
+        # Compliance Status
         met = [c for c in compliance_data if c['followed']]
         pending = [c for c in compliance_data if not c['followed']]
         
@@ -235,6 +219,7 @@ if authentication_status:
         story.append(status_table)
         story.append(Spacer(1, 24))
         
+        # Detailed Requirements
         story.append(Paragraph("Detailed Requirements", styles['Heading2']))
         data = [["Requirement", "Status", "Checklist"]]
         for item in compliance_data:
@@ -276,6 +261,7 @@ if authentication_status:
             st.session_state.results = results
             st.success("Analysis complete!")
             
+            # Show summary metrics
             met = [c for c in results['compliance_matches'] if c['followed']]
             pending = [c for c in results['compliance_matches'] if not c['followed']]
             score = int((len(met) / len(results['compliance_matches'])) * 100 if results['compliance_matches'] else 0)
@@ -297,6 +283,7 @@ if authentication_status:
                 st.metric("High Priority Items", high_pri)
                 st.markdown("</div>", unsafe_allow_html=True)
             
+            # Show matched categories
             st.markdown("### 📌 Detected Project Attributes")
             att_col1, att_col2, att_col3 = st.columns(3)
             with att_col1:
@@ -306,6 +293,7 @@ if authentication_status:
             with att_col3:
                 st.markdown(f"**Region:** <span class='badge badge-blue'>{results['region'].title()}</span>", unsafe_allow_html=True)
             
+            # Priority Matrix
             st.markdown("### 🚨 Priority Matrix")
             high_priority = [c for c in pending if c['priority'] == "High"]
             standard_priority = [c for c in pending if c['priority'] == "Standard"]
@@ -331,6 +319,7 @@ if authentication_status:
                     </div>
                     """, unsafe_allow_html=True)
             
+            # Full Checklist
             st.markdown("### 📋 Detailed Checklist")
             for item in results['compliance_matches']:
                 with st.expander(f"{'✅' if item['followed'] else '❌'} {item['name']}"):
@@ -369,6 +358,7 @@ if authentication_status:
                 "application/pdf"
             )
         else:
+            # Generate CSV action plan
             action_items = []
             for item in st.session_state.results['compliance_matches']:
                 if not item['followed']:
@@ -393,8 +383,3 @@ if authentication_status:
     # Footer
     st.markdown("---")
     st.markdown("<div class='footer'>© 2025 Compliance Advisor Pro</div>", unsafe_allow_html=True)
-
-elif authentication_status is False:
-    st.error('Username/password is incorrect')
-elif authentication_status is None:
-    st.warning('Please enter your username and password')
