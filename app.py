@@ -158,7 +158,7 @@ elif authentication_status:
                     return category
             return list(categories.keys())[0] if categories else "unknown"
 
-    def analyze_project(description):
+    def analyze_project(description, df):
         # Define matching categories
         domains = {
             "healthcare": ["healthcare", "hospital", "patient", "medical", "health", "phi"],
@@ -191,7 +191,7 @@ elif authentication_status:
         
         # Filter compliance items based on matched categories
         compliance_matches = []
-        for _, row in compliance_df.iterrows():
+        for _, row in df.iterrows():
             try:
                 # Check if this compliance applies to our matched domain
                 domain_str = str(row['Domain']) if pd.notna(row['Domain']) else ""
@@ -314,89 +314,91 @@ elif authentication_status:
     if st.button("🔍 Analyze Compliance", type="primary"):
         if not project_description.strip():
             st.warning("Please enter a project description")
-            st.stop()
-        
-        with st.spinner("Analyzing requirements..."):
-            try:
-                results = analyze_project(project_description)
-                st.session_state.results = results
-                st.success("Analysis complete!")
-                
-                if results['compliance_matches']:
-                    # Show summary metrics
-                    met = [c for c in results['compliance_matches'] if c['followed']]
-                    pending = [c for c in results['compliance_matches'] if not c['followed']]
-                    score = int((len(met) / len(results['compliance_matches'])) * 100)
+        else:
+            with st.spinner("Analyzing requirements..."):
+                try:
+                    results = analyze_project(project_description, compliance_df)
+                    st.session_state.results = results
+                    st.success("Analysis complete!")
                     
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
-                        st.metric("Compliance Score", f"{score}%")
-                        st.markdown("</div>", unsafe_allow_html=True)
-                    
-                    with col2:
-                        st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
-                        st.metric("Pending Requirements", len(pending))
-                        st.markdown("</div>", unsafe_allow_html=True)
-                    
-                    with col3:
-                        st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
-                        high_pri = len([c for c in pending if c['priority'] == "High"])
-                        st.metric("High Priority Items", high_pri)
-                        st.markdown("</div>", unsafe_allow_html=True)
-                    
-                    # Show matched categories
-                    st.markdown("### 📌 Detected Project Attributes")
-                    att_col1, att_col2, att_col3 = st.columns(3)
-                    with att_col1:
-                        st.markdown(f"**Domain:** <span class='badge badge-blue'>{results['domain'].title()}</span>", unsafe_allow_html=True)
-                    with att_col2:
-                        st.markdown(f"**Data Type:** <span class='badge badge-blue'>{results['data_type']}</span>", unsafe_allow_html=True)
-                    with att_col3:
-                        st.markdown(f"**Region:** <span class='badge badge-blue'>{results['region'].title()}</span>", unsafe_allow_html=True)
-                    
-                    # Priority Matrix
-                    st.markdown("### 🚨 Priority Matrix")
-                    high_priority = [c for c in pending if c['priority'] == "High"]
-                    standard_priority = [c for c in pending if c['priority'] == "Standard"]
-                    
-                    if high_priority:
-                        st.markdown("#### 🔴 High Priority (Urgent)")
-                        for item in high_priority:
-                            st.markdown(f"""
-                            <div class='priority-high'>
-                                <strong>{item['name']}</strong><br/>
-                                {item['why']}<br/>
-                                <em>Checklist: {", ".join(item['checklist'])}</em>
-                            </div>
-                            """, unsafe_allow_html=True)
-                    
-                    if standard_priority:
-                        st.markdown("#### 🟠 Standard Priority")
-                        for item in standard_priority:
-                            st.markdown(f"""
-                            <div class='priority-standard'>
-                                <strong>{item['name']}</strong><br/>
-                                {item['why']}
-                            </div>
-                            """, unsafe_allow_html=True)
-                    
-                    # Full Checklist
-                    st.markdown("### 📋 Detailed Checklist")
-                    for item in results['compliance_matches']:
-                        with st.expander(f"{'✅' if item['followed'] else '❌'} {item['name']}"):
-                            st.markdown(f"**Priority:** {item['priority']}")
-                            if item['alert']:
-                                st.warning("⚠️ Alert: This regulation has recent updates")
-                            st.markdown("**Requirements:**")
-                            for point in item['checklist']:
-                                st.markdown(f"- {point}")
-                            st.markdown(f"*{item['why']}*")
-                else:
-                    st.info("No matching compliance requirements found for your project description.")
-                    
-            except Exception as e:
-                st.error(f"Error during analysis: {str(e)}")
+                    if results['compliance_matches']:
+                        # Show summary metrics
+                        met = [c for c in results['compliance_matches'] if c['followed']]
+                        pending = [c for c in results['compliance_matches'] if not c['followed']]
+                        score = int((len(met) / len(results['compliance_matches'])) * 100)
+                        
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
+                            st.metric("Compliance Score", f"{score}%")
+                            st.markdown("</div>", unsafe_allow_html=True)
+                        
+                        with col2:
+                            st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
+                            st.metric("Pending Requirements", len(pending))
+                            st.markdown("</div>", unsafe_allow_html=True)
+                        
+                        with col3:
+                            st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
+                            high_pri = len([c for c in pending if c['priority'] == "High"])
+                            st.metric("High Priority Items", high_pri)
+                            st.markdown("</div>", unsafe_allow_html=True)
+                        
+                        # Show matched categories
+                        st.markdown("### 📌 Detected Project Attributes")
+                        att_col1, att_col2, att_col3 = st.columns(3)
+                        with att_col1:
+                            st.markdown(f"**Domain:** <span class='badge badge-blue'>{results['domain'].title()}</span>", unsafe_allow_html=True)
+                        with att_col2:
+                            st.markdown(f"**Data Type:** <span class='badge badge-blue'>{results['data_type']}</span>", unsafe_allow_html=True)
+                        with att_col3:
+                            st.markdown(f"**Region:** <span class='badge badge-blue'>{results['region'].title()}</span>", unsafe_allow_html=True)
+                        
+                        # Priority Matrix
+                        st.markdown("### 🚨 Priority Matrix")
+                        high_priority = [c for c in pending if c['priority'] == "High"]
+                        standard_priority = [c for c in pending if c['priority'] == "Standard"]
+                        
+                        if high_priority:
+                            st.markdown("#### 🔴 High Priority (Urgent)")
+                            for item in high_priority:
+                                st.markdown(f"""
+                                <div class='priority-high'>
+                                    <strong>{item['name']}</strong><br/>
+                                    {item['why']}<br/>
+                                    <em>Checklist: {", ".join(item['checklist'])}</em>
+                                </div>
+                                """, unsafe_allow_html=True)
+                        
+                        if standard_priority:
+                            st.markdown("#### 🟠 Standard Priority")
+                            for item in standard_priority:
+                                st.markdown(f"""
+                                <div class='priority-standard'>
+                                    <strong>{item['name']}</strong><br/>
+                                    {item['why']}
+                                </div>
+                                """, unsafe_allow_html=True)
+                        
+                        # Full Checklist
+                        st.markdown("### 📋 Detailed Checklist")
+                        for item in results['compliance_matches']:
+                            with st.expander(f"{'✅' if item['followed'] else '❌'} {item['name']}"):
+                                st.markdown(f"**Priority:** {item['priority']}")
+                                if item['alert']:
+                                    st.warning("⚠️ Alert: This regulation has recent updates")
+                                st.markdown("**Requirements:**")
+                                for point in item['checklist']:
+                                    st.markdown(f"- {point}")
+                                st.markdown(f"*{item['why']}*")
+                    else:
+                        st.info("No matching compliance requirements found for your project description.")
+                        
+                except Exception as e:
+                    st.error(f"Error during analysis: {str(e)}")
+                    st.error(f"Debug info: {type(e).__name__}")
+                    import traceback
+                    st.error(f"Traceback: {traceback.format_exc()}")
 
     # Report generation
     if st.session_state.get('results') and st.session_state.results.get('compliance_matches'):
