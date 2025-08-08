@@ -2,5 +2,10 @@ streamlit
 pandas
 reportlab
 plotly>=5.0.0
-streamlit-authenticator
+st-annotated-text
+st-aggrid
+st-apex-charts
+st-auth
+pyarrow
 bcrypt
+python-jose[cryptography]
