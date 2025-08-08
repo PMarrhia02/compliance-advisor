@@ -1,11 +1,5 @@
-streamlit
-pandas
-reportlab
-plotly>=5.0.0
-st-annotated-text
-st-aggrid
-st-apex-charts
-st-auth
-pyarrow
-bcrypt
-python-jose[cryptography]
+streamlit>=1.28.0
+pandas>=1.5.0
+reportlab>=3.6.0
+streamlit-authenticator>=0.2.3
+bcrypt>=4.0.0
