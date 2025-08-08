@@ -6,6 +6,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.units import inch
+import streamlit_authenticator as stauth
+import bcrypt
 
 # Page setup
 st.set_page_config(page_title="Compliance Advisor Pro", layout="wide")
@@ -31,22 +33,25 @@ st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow
 st.markdown("AI-powered compliance analysis for your exact requirements")
 
 # User Authentication
-if 'username' not in st.session_state:
-    st.session_state.username = None
+# Define user credentials (hashed passwords)
+names = ['Admin']
+usernames = ['admin']
+passwords = [bcrypt.hashpw("password".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')]  # Store hashed password
 
-if st.session_state.username is None:
-    st.subheader("Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+# Create an authenticator object
+authenticator = stauth.Authenticate(names, usernames, passwords, 'some_cookie_name', 'some_signature_key', cookie_expiry_days=30)
+
+# Login
+name, authentication_status = authenticator.login('Login', 'main')
+
+if authentication_status:
+    st.success(f'Welcome {name}')
     
-    if st.button("Login"):
-        if username == "admin" and password == "password":  # Replace with secure authentication
-            st.session_state.username = username
-            st.success("Logged in successfully!")
-        else:
-            st.error("Invalid username or password.")
-else:
-    st.success(f"Welcome, {st.session_state.username}!")
+    # Logout button
+    if st.button("Logout"):
+        authenticator.logout('Logout', 'main')
+        st.success("You have been logged out.")
+        st.experimental_rerun()  # Rerun the app to refresh the state
 
     # Load data from Google Sheets
     @st.cache_data
