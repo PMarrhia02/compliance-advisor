@@ -4,3 +4,6 @@ reportlab
 plotly>=5.0.0
 streamlit-authenticator
 bcrypt
+gspread
+oauth2client
+python-dotenv
