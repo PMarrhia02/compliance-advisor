@@ -80,7 +80,8 @@ if authentication_status:
             required_cols = [
                 'Compliance Name', 'Domain', 'Applies To', 'Checklist 1', 
                 'Checklist 2', 'Checklist 3', 'Followed By Compunnel', 
-                'Why Required', 'Priority', 'Trigger Alert', 'RSS Feed'
+                'Why Required', 'Priority', 'Trigger Alert'
+                # Removed 'RSS Feed' from required columns
             ]
             missing_cols = [col for col in required_cols if col not in df.columns]
             if missing_cols:
@@ -100,7 +101,7 @@ if authentication_status:
         placeholder="e.g., 'Healthcare app storing patient records in India with EU users...'"
     )
 
-    # --- NEW FEATURE 2: Interactive Checklist ---
+    # --- Interactive Checklist ---
     def interactive_checklist(compliance_items):
         checklist_status = {}
         for item in compliance_items:
@@ -116,7 +117,7 @@ if authentication_status:
                 checklist_status[item['name']] = status
         return checklist_status
 
-    # --- NEW FEATURE 3: Timeline Visualization ---
+    # --- Timeline Visualization ---
     def show_timeline(compliance_data):
         deadlines = {
             'High': [item for item in compliance_data if item['priority'] == 'High'],
@@ -134,9 +135,11 @@ if authentication_status:
         ax.legend()
         st.pyplot(fig)
 
-    # --- NEW FEATURE 4: Regulatory Updates ---
+    # --- Regulatory Updates (Handles missing RSS Feed) ---
     def get_regulatory_updates(df):
         updates = []
+        if 'RSS Feed' not in df.columns:  # Skip if column doesn't exist
+            return updates
         for _, row in df.dropna(subset=['RSS Feed']).iterrows():
             try:
                 feed = feedparser.parse(row['RSS Feed'])
@@ -147,7 +150,7 @@ if authentication_status:
                 continue
         return updates
 
-    # --- NEW FEATURE 5: Chatbot Assistant ---
+    # --- Chatbot Assistant ---
     @st.cache_resource
     def load_chatbot():
         return pipeline('text-generation', model='gpt2')
@@ -183,7 +186,10 @@ if authentication_status:
                     st.write(response.split("Answer:")[-1])
             
             with st.sidebar.expander("📰 Regulatory Updates"):
-                for source, title, link in get_regulatory_updates(compliance_df):
+                updates = get_regulatory_updates(compliance_df)
+                if not updates:
+                    st.info("No RSS feeds configured.")
+                for source, title, link in updates:
                     st.markdown(f"**{source}**: [{title}]({link})")
 
     # --- Report Generation (Enhanced) ---
@@ -206,7 +212,7 @@ if authentication_status:
                 "text/markdown"
             )
         
-        # --- NEW FEATURE 6: Policy Templates ---
+        # --- Policy Templates (Admin Only) ---
         if role == 'admin':
             with st.expander("🛠️ Policy Templates"):
                 selected_compliance = st.selectbox(
@@ -217,7 +223,7 @@ if authentication_status:
                     template = generate_policy_template(selected_compliance)
                     st.code(template)
 
-    # --- NEW FEATURE 7: Audit Logging ---
+    # --- Audit Logging ---
     def log_action(username, action):
         try:
             with open("audit_log.json", "a") as f:
