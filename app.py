@@ -33,45 +33,50 @@ st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow
 st.markdown("AI-powered compliance analysis for your exact requirements")
 
 # --- USER AUTHENTICATION ---
-# Hash the password once
-hashed_password = bcrypt.hashpw("password".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+# Hash the password
+hashed_password = stauth.Hasher(['password']).generate()[0]
 
-# Create the config dictionary for streamlit_authenticator with the correct structure
+# Correct configuration structure
 config = {
-    'cookie': {
-        'name': 'some_cookie_name',
-        'key': 'some_signature_key',
-        'expiry_days': 30
-    },
     'credentials': {
         'usernames': {
             'admin': {
+                'email': 'admin@example.com',
                 'name': 'Admin',
                 'password': hashed_password
             }
         }
+    },
+    'cookie': {
+        'name': 'compliance_cookie',
+        'key': 'some_random_signature_key',
+        'expiry_days': 30
+    },
+    'preauthorized': {
+        'emails': ['admin@example.com']
     }
 }
 
-# Create an authenticator object with the correct config
+# Create authenticator object
 try:
-    authenticator = stauth.Authenticate(config)
-except KeyError as e:
-    st.error(f"Authentication setup failed: Missing key in configuration. Error: {e}")
+    authenticator = stauth.Authenticate(
+        config['credentials'],
+        config['cookie']['name'],
+        config['cookie']['key'],
+        config['cookie']['expiry_days'],
+        config['preauthorized']
+    )
+except Exception as e:
+    st.error(f"Authentication setup failed: {str(e)}")
     st.stop()
 
 # Login
-name, authentication_status = authenticator.login('Login', 'main')
+name, authentication_status, username = authenticator.login('Login', 'main')
 
 if authentication_status:
-    st.success(f'Welcome {name}')
+    authenticator.logout('Logout', 'sidebar')
+    st.sidebar.title(f"Welcome {name}")
     
-    # Logout button
-    if st.button("Logout"):
-        authenticator.logout('Logout', 'main')
-        st.success("You have been logged out.")
-        st.experimental_rerun()
-
     # Load data from Google Sheets
     @st.cache_data
     def load_data():
@@ -388,3 +393,8 @@ if authentication_status:
     # Footer
     st.markdown("---")
     st.markdown("<div class='footer'>© 2025 Compliance Advisor Pro</div>", unsafe_allow_html=True)
+
+elif authentication_status is False:
+    st.error('Username/password is incorrect')
+elif authentication_status is None:
+    st.warning('Please enter your username and password')
