@@ -1,6 +1,9 @@
-streamlit
-pandas
-reportlab
+streamlit>=1.28.0
+pandas>=2.0.0
+reportlab>=4.0.0
 plotly>=5.0.0
-streamlit-authenticator
-bcrypt
+bcrypt>=4.0.0
+spacy>=3.7.0
+python-dotenv>=1.0.0
+streamlit-js-eval>=0.1.0
+watchdog>=3.0.0  # For cache auto-refresh
