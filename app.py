@@ -16,10 +16,9 @@ from transformers import pipeline  # For the chatbot feature
 # Page setup
 st.set_page_config(page_title="Compliance Advisor Pro", layout="wide")
 
-# Custom CSS (updated with new styles)
+# Custom CSS
 st.markdown("""
     <style>
-        /* Existing styles... */
         .timeline { margin-top: 2rem; border-left: 3px solid #003366; padding-left: 1rem; }
         .chatbot { background-color: #f8f9fa; padding: 1rem; border-radius: 10px; }
         .template-box { border: 1px dashed #6c757d; padding: 1rem; margin: 1rem 0; }
@@ -71,33 +70,26 @@ if authentication_status:
     role = config['credentials']['usernames'][username]['role']
     st.sidebar.title(f"Welcome {name} ({role.capitalize()})")
     
-    # --- NEW FEATURE 1: Multi-Language Support ---
-    LANGUAGES = {
-        'English': {'analyze': 'Analyze Compliance', 'export': 'Export'},
-        'Spanish': {'analyze': 'Analizar cumplimiento', 'export': 'Exportar'}
-    }
-    language = st.sidebar.selectbox("Language", list(LANGUAGES.keys()))
-    
     # --- Load Data ---
     @st.cache_data
     def load_data():
         sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"
         sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-        df = pd.read_csv(sheet_url)
-        
-        # Validate columns (updated with new required columns)
-        required_cols = [
-            'Compliance Name', 'Domain', 'Applies To', 'Checklist 1', 
-            'Checklist 2', 'Checklist 3', 'Followed By Compunnel', 
-            'Why Required', 'Priority', 'Trigger Alert', 'RSS Feed'  # New columns
-        ]
-        
-        missing_cols = [col for col in required_cols if col not in df.columns]
-        if missing_cols:
-            st.error(f"Missing required columns: {', '.join(missing_cols)}")
+        try:
+            df = pd.read_csv(sheet_url)
+            required_cols = [
+                'Compliance Name', 'Domain', 'Applies To', 'Checklist 1', 
+                'Checklist 2', 'Checklist 3', 'Followed By Compunnel', 
+                'Why Required', 'Priority', 'Trigger Alert', 'RSS Feed'
+            ]
+            missing_cols = [col for col in required_cols if col not in df.columns]
+            if missing_cols:
+                st.error(f"Missing required columns: {', '.join(missing_cols)}")
+                st.stop()
+            return df
+        except Exception as e:
+            st.error(f"Failed to load data: {str(e)}")
             st.stop()
-            
-        return df
 
     compliance_df = load_data()
 
@@ -123,9 +115,6 @@ if authentication_status:
                     st.text_area("Notes", key=f"notes_{item['name']}")
                 checklist_status[item['name']] = status
         return checklist_status
-
-    # --- Analysis Functions (Existing) ---
-    # ... (keep existing analyze_project and match_category functions) ...
 
     # --- NEW FEATURE 3: Timeline Visualization ---
     def show_timeline(compliance_data):
@@ -153,7 +142,8 @@ if authentication_status:
                 feed = feedparser.parse(row['RSS Feed'])
                 updates.extend([(row['Compliance Name'], entry.title, entry.link) 
                              for entry in feed.entries[:2]])
-            except:
+            except Exception as e:
+                st.error(f"Failed to parse RSS feed: {str(e)}")
                 continue
         return updates
 
@@ -169,7 +159,7 @@ if authentication_status:
         return chatbot(prompt, max_length=150)[0]['generated_text']
 
     # --- Main Analysis ---
-    if st.button(f"🔍 {LANGUAGES[language]['analyze']}", type="primary"):
+    if st.button("🔍 Analyze Compliance", type="primary"):
         if not project_description.strip():
             st.warning("Please enter a project description")
             st.stop()
@@ -178,8 +168,6 @@ if authentication_status:
             results = analyze_project(project_description)
             st.session_state.results = results
             st.success("Analysis complete!")
-            
-            # Existing analysis display code...
             
             # Display new features
             st.markdown("### 📅 Compliance Timeline")
@@ -201,15 +189,13 @@ if authentication_status:
     # --- Report Generation (Enhanced) ---
     if st.session_state.get('results'):
         st.markdown("---")
-        st.markdown(f"## 📤 {LANGUAGES[language]['export']}")
+        st.markdown("## 📤 Generate Reports")
         
         format_choice = st.radio(
             "Select report type:",
             ["PDF Report", "Action Plan (CSV)", "Markdown", "HTML"],
             horizontal=True
         )
-        
-        # Existing PDF and CSV export...
         
         if format_choice == "Markdown":
             markdown_report = generate_markdown(st.session_state.results)
