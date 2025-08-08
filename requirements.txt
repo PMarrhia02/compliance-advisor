@@ -10,3 +10,6 @@ bcrypt==4.0.1
 matplotlib 
 feedparser
 transformers
+torch>=1.13.0  # Required for transformers
+sentencepiece>=0.1.95  # Required for some transformer models
+protobuf>=3.20.0 
