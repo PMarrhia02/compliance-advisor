@@ -7,6 +7,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 import streamlit_authenticator as stauth
+import bcrypt
 import matplotlib.pyplot as plt
 import feedparser
 from datetime import datetime
@@ -19,49 +20,27 @@ st.set_page_config(page_title="Compliance Advisor Pro", layout="wide")
 # Custom CSS
 st.markdown("""
     <style>
+        .title { font-size: 2.5em; color: #003366; font-weight: bold; }
+        .badge { display: inline-block; padding: 0.25em 0.6em; font-size: 90%; font-weight: 600; border-radius: 0.25rem; }
+        .badge-green { background-color: #d4edda; color: #155724; }
+        .badge-red { background-color: #f8d7da; color: #721c24; }
+        .badge-blue { background-color: #d1ecf1; color: #0c5460; }
+        .badge-gold { background-color: #fff3cd; color: #856404; }
+        .priority-high { border-left: 4px solid #dc3545; padding-left: 10px; margin: 8px 0; }
+        .priority-standard { border-left: 4px solid #fd7e14; padding-left: 10px; margin: 8px 0; }
+        .dashboard-card { border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .footer { text-align: center; font-size: 0.9em; color: gray; margin-top: 3rem; }
         .timeline { margin-top: 2rem; border-left: 3px solid #003366; padding-left: 1rem; }
         .chatbot { background-color: #f8f9fa; padding: 1rem; border-radius: 10px; }
         .template-box { border: 1px dashed #6c757d; padding: 1rem; margin: 1rem 0; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- USER AUTHENTICATION (Enhanced) ---
-hashed_passwords = stauth.Hasher(['password', 'userpass']).generate()
+# Header
+st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow_html=True)
+st.markdown("AI-powered compliance analysis for your exact requirements")
 
-config = {
-    'credentials': {
-        'usernames': {
-            'admin': {
-                'email': 'admin@example.com',
-                'name': 'Admin',
-                'password': hashed_passwords[0],
-                'role': 'admin'
-            },
-            'user': {
-                'email': 'user@example.com',
-                'name': 'Standard User',
-                'password': hashed_passwords[1],
-                'role': 'user'
-            }
-        }
-    },
-    'cookie': {
-        'name': 'compliance_cookie',
-        'key': 'some_random_signature_key',
-        'expiry_days': 30
-    },
-    'preauthorized': {
-        'emails': ['admin@example.com']
-    }
-}
-
-authenticator = stauth.Authenticate(
-    config['credentials'],
-    config['cookie']['name'],
-    config['cookie']['key'],
-    config['cookie']['expiry_days'],
-    config['preauthorized']
-)
+# --- CORE APP FUNCTIONS ---
 
 # --- Analysis Function ---
 def analyze_project(project_description):
@@ -183,7 +162,52 @@ def compliance_chatbot(question, compliance_data):
     prompt = f"Context: {context}\nQuestion: {question}\nAnswer:"
     return chatbot(prompt, max_length=150)[0]['generated_text']
 
-# --- Main App Logic ---
+# --- USER AUTHENTICATION ---
+# Hash the password once
+hashed_passwords = stauth.Hasher(['password', 'userpass']).generate()
+
+# Create the config dictionary for streamlit_authenticator with the correct structure
+config = {
+    'credentials': {
+        'usernames': {
+            'admin': {
+                'email': 'admin@example.com',
+                'name': 'Admin',
+                'password': hashed_passwords[0],
+                'role': 'admin'
+            },
+            'user': {
+                'email': 'user@example.com',
+                'name': 'Standard User',
+                'password': hashed_passwords[1],
+                'role': 'user'
+            }
+        }
+    },
+    'cookie': {
+        'name': 'compliance_cookie',
+        'key': 'some_random_signature_key',
+        'expiry_days': 30
+    },
+    'preauthorized': {
+        'emails': ['admin@example.com']
+    }
+}
+
+# Create an authenticator object with the correct config
+try:
+    authenticator = stauth.Authenticate(
+        config['credentials'],
+        config['cookie']['name'],
+        config['cookie']['key'],
+        config['cookie']['expiry_days'],
+        config['preauthorized']
+    )
+except KeyError as e:
+    st.error(f"Authentication setup failed: Missing key in configuration. Error: {e}")
+    st.stop()
+
+# Login
 name, authentication_status, username = authenticator.login('Login', 'main')
 
 if authentication_status:
@@ -193,21 +217,21 @@ if authentication_status:
     
     compliance_df = load_data()
 
-    # --- Project Input ---
+    # Project input
     project_description = st.text_area(
         "Describe your project (include data types and regions):",
         height=150,
         placeholder="e.g., 'Healthcare app storing patient records in India with EU users...'"
     )
 
-    # --- Main Analysis ---
+    # Main analysis
     if st.button("🔍 Analyze Compliance", type="primary"):
         if not project_description.strip():
             st.warning("Please enter a project description")
             st.stop()
         
         with st.spinner("Analyzing requirements..."):
-            results = analyze_project(project_description)  # Fixed function name
+            results = analyze_project(project_description)
             st.session_state.results = results
             st.success("Analysis complete!")
             
@@ -228,3 +252,7 @@ elif authentication_status is False:
     st.error('Username/password is incorrect')
 elif authentication_status is None:
     st.warning('Please enter your username and password')
+
+# Footer
+st.markdown("---")
+st.markdown("<div class='footer'>© 2025 Compliance Advisor Pro</div>", unsafe_allow_html=True)
