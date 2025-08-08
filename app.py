@@ -33,12 +33,10 @@ st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow
 st.markdown("AI-powered compliance analysis for your exact requirements")
 
 # --- USER AUTHENTICATION ---
-# Define user credentials (hashed passwords)
-names = ['Admin']
-usernames = ['admin']
-passwords = [bcrypt.hashpw("password".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')]
+# Define user credentials and hash the password
+hashed_password = bcrypt.hashpw("password".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-# Create a config dictionary for streamlit_authenticator
+# Create the config dictionary for streamlit_authenticator with the correct structure
 config = {
     'cookie': {
         'name': 'some_cookie_name',
@@ -47,16 +45,20 @@ config = {
     },
     'credentials': {
         'usernames': {
-            usernames[0]: {
-                'name': names[0],
-                'password': passwords[0]
+            'admin': {
+                'name': 'Admin',
+                'password': hashed_password
             }
         }
     }
 }
 
 # Create an authenticator object with the new config
-authenticator = stauth.Authenticate(config)
+try:
+    authenticator = stauth.Authenticate(config)
+except KeyError as e:
+    st.error(f"Authentication setup failed: Missing key in configuration. Please check the `config` dictionary structure. Error: {e}")
+    st.stop()
 
 # Login
 name, authentication_status = authenticator.login('Login', 'main')
