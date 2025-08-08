@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import feedparser
 from datetime import datetime
 import json
-from transformers import pipeline  # For the chatbot feature
+from transformers import pipeline
 
 # Page setup
 st.set_page_config(page_title="Compliance Advisor Pro", layout="wide")
@@ -93,36 +93,127 @@ if authentication_status:
 
     compliance_df = load_data()
 
+    # --- Analysis Function ---
+    def analyze_project(project_description):
+        # Simple keyword-based analysis (replace with more sophisticated logic)
+        results = {
+            'project_description': project_description,
+            'compliance_matches': [],
+            'recommendations': []
+        }
+        
+        # Convert to lowercase for case-insensitive matching
+        desc_lower = project_description.lower()
+        
+        # Check for healthcare-related terms
+        healthcare_terms = ['phi', 'health record', 'patient data', 'medical', 'treatment history']
+        is_healthcare = any(term in desc_lower for term in healthcare_terms)
+        
+        # Check for India presence
+        is_india = 'india' in desc_lower
+        
+        # Match compliance requirements
+        for _, row in compliance_df.iterrows():
+            match = False
+            reason = []
+            
+            # Domain matching
+            if is_healthcare and 'Healthcare' in row['Domain']:
+                match = True
+                reason.append("Healthcare data detected")
+                
+            # Regional requirements
+            if is_india and 'India' in row['Applies To']:
+                match = True
+                reason.append("India operations detected")
+                
+            if match:
+                results['compliance_matches'].append({
+                    'name': row['Compliance Name'],
+                    'domain': row['Domain'],
+                    'applies_to': row['Applies To'],
+                    'checklists': [row[f'Checklist {i}'] for i in range(1, 4) if pd.notna(row[f'Checklist {i}'])],
+                    'followed': row['Followed By Compunnel'],
+                    'why_required': row['Why Required'],
+                    'priority': row['Priority'],
+                    'trigger_alert': row['Trigger Alert'],
+                    'match_reasons': reason
+                })
+        
+        # Generate recommendations
+        if is_healthcare and is_india:
+            results['recommendations'].append("Implement HIPAA-like controls for PHI protection")
+            results['recommendations'].append("Ensure data localization as per India's PDPB requirements")
+        
+        return results
+
+    # --- Report Generation Functions ---
+    def generate_markdown(results):
+        markdown = f"# Compliance Report\n\n"
+        markdown += f"**Project Description**: {results['project_description']}\n\n"
+        
+        markdown += "## Required Compliance Frameworks\n"
+        for item in results['compliance_matches']:
+            markdown += f"- **{item['name']}** (Priority: {item['priority']})\n"
+            markdown += f"  - Applies to: {item['applies_to']}\n"
+            markdown += f"  - Why required: {item['why_required']}\n"
+            markdown += "  - Checklists:\n"
+            for checklist in item['checklists']:
+                markdown += f"    - {checklist}\n"
+        
+        markdown += "\n## Recommendations\n"
+        for rec in results['recommendations']:
+            markdown += f"- {rec}\n"
+            
+        return markdown
+
+    def generate_policy_template(compliance_name):
+        # Simple template generator
+        templates = {
+            "GDPR": """# GDPR Compliance Policy
+
+1. Data Protection Principles
+   - Lawfulness, fairness and transparency
+   - Purpose limitation
+   - Data minimization
+   - Accuracy
+   - Storage limitation
+   - Integrity and confidentiality
+
+2. Data Subject Rights
+   - Right to access
+   - Right to rectification
+   - Right to erasure
+   - Right to restrict processing
+   - Right to data portability
+   - Right to object""",
+            
+            "HIPAA": """# HIPAA Compliance Policy
+
+1. Administrative Safeguards
+   - Security management process
+   - Assigned security responsibility
+   - Workforce security
+
+2. Physical Safeguards
+   - Facility access controls
+   - Workstation use and security
+
+3. Technical Safeguards
+   - Access control
+   - Audit controls
+   - Integrity controls
+   - Transmission security"""
+        }
+        
+        return templates.get(compliance_name, f"# {compliance_name} Compliance Policy\n\nCustom policy template goes here.")
+
     # --- Project Input ---
     project_description = st.text_area(
         "Describe your project (include data types and regions):",
         height=150,
         placeholder="e.g., 'Healthcare app storing patient records in India with EU users...'"
     )
-
-    # --- Analyze Project Function ---
-    def analyze_project(description):
-        # Placeholder implementation for analyzing the project description
-        # This should be replaced with your actual analysis logic
-        compliance_matches = []
-        # Example logic: Check for keywords in the description
-        if "PHI" in description or "patient" in description:
-            compliance_matches.append({
-                'name': 'HIPAA Compliance',
-                'followed': True,
-                'priority': 'High',
-                'checklist': ['Ensure data encryption', 'Implement access controls'],
-                'why': 'Required for handling PHI in healthcare applications.'
-            })
-        else:
-            compliance_matches.append({
-                'name': 'General Data Protection',
-                'followed': False,
-                'priority': 'Standard',
-                'checklist': ['Data anonymization', 'User  consent management'],
-                'why': 'Important for data protection regulations.'
-            })
-        return {'compliance_matches': compliance_matches}
 
     # --- Interactive Checklist ---
     def interactive_checklist(compliance_items):
