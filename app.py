@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import feedparser
 from datetime import datetime
 import json
-from transformers import pipeline
+from transformers import pipeline  # For the chatbot feature
 
 # Page setup
 st.set_page_config(page_title="Compliance Advisor Pro", layout="wide")
@@ -99,6 +99,30 @@ if authentication_status:
         height=150,
         placeholder="e.g., 'Healthcare app storing patient records in India with EU users...'"
     )
+
+    # --- Analyze Project Function ---
+    def analyze_project(description):
+        # Placeholder implementation for analyzing the project description
+        # This should be replaced with your actual analysis logic
+        compliance_matches = []
+        # Example logic: Check for keywords in the description
+        if "PHI" in description or "patient" in description:
+            compliance_matches.append({
+                'name': 'HIPAA Compliance',
+                'followed': True,
+                'priority': 'High',
+                'checklist': ['Ensure data encryption', 'Implement access controls'],
+                'why': 'Required for handling PHI in healthcare applications.'
+            })
+        else:
+            compliance_matches.append({
+                'name': 'General Data Protection',
+                'followed': False,
+                'priority': 'Standard',
+                'checklist': ['Data anonymization', 'User  consent management'],
+                'why': 'Important for data protection regulations.'
+            })
+        return {'compliance_matches': compliance_matches}
 
     # --- Interactive Checklist ---
     def interactive_checklist(compliance_items):
