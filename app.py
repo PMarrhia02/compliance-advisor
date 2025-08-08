@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 import pandas as pd
 from io import BytesIO
@@ -406,4 +405,3 @@ if authentication_status:
     # Footer
     st.markdown("---")
     st.markdown("<div class='footer'>© 2025 Compliance Advisor Pro</div>", unsafe_allow_html=True)
-```
