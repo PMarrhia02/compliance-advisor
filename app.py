@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import feedparser
 from datetime import datetime
 import json
-from transformers import pipeline  # For the chatbot feature
+from transformers import pipeline
 
 # Page setup
 st.set_page_config(page_title="Compliance Advisor Pro", layout="wide")
@@ -81,7 +81,6 @@ if authentication_status:
                 'Compliance Name', 'Domain', 'Applies To', 'Checklist 1', 
                 'Checklist 2', 'Checklist 3', 'Followed By Compunnel', 
                 'Why Required', 'Priority', 'Trigger Alert'
-                # Removed 'RSS Feed' from required columns
             ]
             missing_cols = [col for col in required_cols if col not in df.columns]
             if missing_cols:
