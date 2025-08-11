@@ -61,14 +61,14 @@ def check_session_timeout():
 def authenticate(username, password):
     # Check if locked out
     if st.session_state.auth['login_attempts'] >= MAX_LOGIN_ATTEMPTS:
-        if time.time() - st.session_state.auth['last_attempt'] < LOCKOUT_TIME:
-            remaining = int((LOCKOUT_TIME - (time.time() - st.session_state.auth['last_attempt'])) // 60
+        elapsed = time.time() - st.session_state.auth['last_attempt']
+        if elapsed < LOCKOUT_TIME:
+            remaining = int((LOCKOUT_TIME - elapsed) // 60)
             st.error(f"Too many attempts. Try again in {remaining} minutes.")
             return False
-        else:
-            st.session_state.auth['login_attempts'] = 0
+        st.session_state.auth['login_attempts'] = 0
 
-    # Check credentials
+    # Check environment credentials
     env_user = os.getenv("ADMIN_USER")
     env_pass = os.getenv("ADMIN_PASS")
     
@@ -285,7 +285,7 @@ def generate_pdf_report(project_info, compliance_data):
     buffer.seek(0)
     return buffer
 
-# --- Main App ---
+# --- UI Components ---
 def show_login():
     st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow_html=True)
     st.markdown("AI-powered compliance analysis for your exact requirements")
@@ -299,55 +299,10 @@ def show_login():
                 st.rerun()
     
     if st.session_state.auth['login_attempts'] >= MAX_LOGIN_ATTEMPTS:
-        remaining = int((LOCKOUT_TIME - (time.time() - st.session_state.auth['last_attempt'])) // 60)
-        st.warning(f"Account locked. Try again in {remaining} minutes.")
-
-def show_main_app():
-    # Header
-    st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow_html=True)
-    st.markdown(f"Welcome, **{st.session_state.auth['username']}**")
-    
-    if st.button("Logout", key="logout_btn"):
-        st.session_state.auth['logged_in'] = False
-        st.rerun()
-    
-    # Load data
-    compliance_df = load_compliance_data()
-    
-    if compliance_df.empty:
-        st.error("Failed to load compliance data")
-        return
-    
-    # Main tabs
-    tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "🔍 Analysis", "⚙️ Admin"])
-    
-    with tab1:
-        st.header("Compliance Overview")
-        st.dataframe(compliance_df, use_container_width=True)
-    
-    with tab2:
-        st.header("Project Compliance Analysis")
-        project_description = st.text_area(
-            "Describe your project (include data types and regions):",
-            height=150,
-            key="project_desc",
-            placeholder="e.g., Healthcare app storing patient records in India with EU users..."
-        )
-        
-        if st.button("Analyze Compliance", type="primary"):
-            if not project_description.strip():
-                st.warning("Please enter a project description")
-            else:
-                with st.spinner("Analyzing requirements..."):
-                    results = analyze_project(project_description, compliance_df)
-                    st.session_state.results = results
-                    display_results(results)
-    
-    with tab3:
-        if st.session_state.auth['username'] == os.getenv("ADMIN_USER", "admin"):
-            show_admin_tab()
-        else:
-            st.error("Admin privileges required")
+        elapsed = time.time() - st.session_state.auth['last_attempt']
+        if elapsed < LOCKOUT_TIME:
+            remaining = int((LOCKOUT_TIME - elapsed) // 60)
+            st.warning(f"Account locked. Try again in {remaining} minutes.")
 
 def display_results(results):
     st.success("Analysis complete!")
@@ -445,6 +400,53 @@ def show_admin_tab():
                 st.success("Issue created successfully!")
             except Exception as e:
                 st.error(f"Failed: {str(e)}")
+
+def show_main_app():
+    # Header
+    st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow_html=True)
+    st.markdown(f"Welcome, **{st.session_state.auth['username']}**")
+    
+    if st.button("Logout", key="logout_btn"):
+        st.session_state.auth['logged_in'] = False
+        st.rerun()
+    
+    # Load data
+    compliance_df = load_compliance_data()
+    
+    if compliance_df.empty:
+        st.error("Failed to load compliance data")
+        return
+    
+    # Main tabs
+    tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "🔍 Analysis", "⚙️ Admin"])
+    
+    with tab1:
+        st.header("Compliance Overview")
+        st.dataframe(compliance_df, use_container_width=True)
+    
+    with tab2:
+        st.header("Project Compliance Analysis")
+        project_description = st.text_area(
+            "Describe your project (include data types and regions):",
+            height=150,
+            key="project_desc",
+            placeholder="e.g., Healthcare app storing patient records in India with EU users..."
+        )
+        
+        if st.button("Analyze Compliance", type="primary"):
+            if not project_description.strip():
+                st.warning("Please enter a project description")
+            else:
+                with st.spinner("Analyzing requirements..."):
+                    results = analyze_project(project_description, compliance_df)
+                    st.session_state.results = results
+                    display_results(results)
+    
+    with tab3:
+        if st.session_state.auth['username'] == os.getenv("ADMIN_USER", "admin"):
+            show_admin_tab()
+        else:
+            st.error("Admin privileges required")
 
 # --- App Entry Point ---
 def main():
