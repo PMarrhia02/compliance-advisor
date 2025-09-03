@@ -6,13 +6,23 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.units import inch
-from github import Github
-import os
 import bcrypt
 import time
 
 # --- Initialization ---
 st.set_page_config(page_title="Compliance Advisor Pro", layout="wide")
+
+# --- Demo Credentials ---
+DEMO_CREDENTIALS = {
+    "admin": {
+        "password": "admin123",  # Plain text password for demo
+        "role": "admin"
+    },
+    "user": {
+        "password": "user123",   # Plain text password for demo
+        "role": "user"
+    }
+}
 
 # --- Security Constants ---
 SESSION_TIMEOUT = 1800  # 30 minutes
@@ -31,25 +41,6 @@ st.markdown("""
         .footer { text-align: center; margin-top: 3rem; color: #6c757d; }
     </style>
 """, unsafe_allow_html=True)
-
-# --- Secure GitHub Client ---
-@st.cache_resource
-def get_github_client():
-    """Initialize GitHub client using environment-secured token"""
-    try:
-        # Try Streamlit secrets first (for cloud deployment)
-        if st.secrets.get("GITHUB_TOKEN"):
-            return Github(st.secrets["GITHUB_TOKEN"])
-        
-        # Fallback to local environment variable
-        if os.getenv("GITHUB_TOKEN"):
-            return Github(os.getenv("GITHUB_TOKEN"))
-        
-        st.error("GitHub token not configured")
-        return None
-    except Exception as e:
-        st.error(f"GitHub connection failed: {str(e)}")
-        return None
 
 # --- Authentication System ---
 def initialize_auth():
@@ -72,15 +63,13 @@ def authenticate(username, password):
             return False
         st.session_state.auth['login_attempts'] = 0
 
-    # Check credentials - uses Streamlit secrets or .env
-    env_user = st.secrets.get("ADMIN_USER", os.getenv("ADMIN_USER"))
-    env_pass = st.secrets.get("ADMIN_PASS", os.getenv("ADMIN_PASS"))
-    
-    if username == env_user and bcrypt.checkpw(password.encode(), env_pass.encode()):
+    # Check against demo credentials
+    if username in DEMO_CREDENTIALS and password == DEMO_CREDENTIALS[username]["password"]:
         st.session_state.auth.update({
             'logged_in': True,
             'username': username,
-            'login_attempts': 0
+            'login_attempts': 0,
+            'role': DEMO_CREDENTIALS[username]["role"]
         })
         return True
     
@@ -91,19 +80,9 @@ def authenticate(username, password):
 
 # --- Data Loading ---
 def load_compliance_data():
-    """Load data from GitHub repo or fallback to Google Sheets"""
+    """Load data from fallback to Google Sheets"""
     try:
-        # Try GitHub first
-        repo_path = st.secrets.get("COMPLIANCE_DATA_REPO", os.getenv("COMPLIANCE_DATA_REPO"))
-        if repo_path and get_github_client():
-            repo = get_github_client().get_repo(repo_path)
-            contents = repo.get_contents("compliance_standards.csv")
-            return pd.read_csv(BytesIO(contents.decoded_content))
-    except Exception as e:
-        st.warning(f"GitHub load failed: {str(e)}")
-    
-    # Fallback to Google Sheets
-    try:
+        # Fallback to Google Sheets
         sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"
         sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
         df = pd.read_csv(sheet_url)
@@ -114,9 +93,50 @@ def load_compliance_data():
         st.error(f"Failed to load data: {str(e)}")
         return pd.DataFrame()
 
+# --- Analysis Functions ---
+def analyze_project(project_description, compliance_df):
+    """Mock analysis function - replace with your actual implementation"""
+    # This is a placeholder - implement your actual analysis logic here
+    return {
+        "applicable_standards": compliance_df.sample(3).to_dict('records'),
+        "summary": "Based on your project description, 3 compliance standards apply."
+    }
+
+def display_results(results):
+    """Display analysis results - replace with your actual implementation"""
+    st.subheader("Compliance Requirements")
+    for standard in results["applicable_standards"]:
+        with st.expander(standard.get('Compliance Name', 'Unknown Standard')):
+            st.write(f"Domain: {standard.get('Domain', 'N/A')}")
+            st.write(f"Applies To: {standard.get('Applies To', 'N/A')}")
+            st.write(f"Why Required: {standard.get('Why Required', 'N/A')}")
+    
+    st.success(results["summary"])
+
+# --- Admin Functions ---
+def show_admin_tab():
+    """Show admin panel - replace with your actual implementation"""
+    st.header("Admin Panel")
+    st.info("This is the admin panel. Demo users can access this with admin credentials.")
+    
+    # Display demo credentials for convenience
+    with st.expander("Demo Credentials"):
+        st.write("**Admin Account:**")
+        st.code("Username: admin\nPassword: admin123")
+        st.write("**User Account:**")
+        st.code("Username: user\nPassword: user123")
+
 # --- Main App Components ---
 def show_login():
     st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow_html=True)
+    
+    # Display demo credentials for easy access
+    with st.expander("Demo Credentials", expanded=True):
+        st.write("**Admin Account:**")
+        st.code("Username: admin\nPassword: admin123")
+        st.write("**User Account:**")
+        st.code("Username: user\nPassword: user123")
+    
     with st.form("auth_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
@@ -135,7 +155,7 @@ def show_main_app():
     st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow_html=True)
     col1, col2 = st.columns([4, 1])
     with col1:
-        st.markdown(f"Welcome, **{st.session_state.auth['username']}**")
+        st.markdown(f"Welcome, **{st.session_state.auth['username']}** ({st.session_state.auth.get('role', 'user')})")
     with col2:
         if st.button("Logout"):
             st.session_state.auth['logged_in'] = False
@@ -171,7 +191,7 @@ def show_main_app():
                     display_results(results)
     
     with tab3:
-        if st.session_state.auth['username'] == st.secrets.get("ADMIN_USER", os.getenv("ADMIN_USER")):
+        if st.session_state.auth.get('role') == 'admin':
             show_admin_tab()
         else:
             st.error("Admin privileges required")
