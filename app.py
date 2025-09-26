@@ -10,71 +10,61 @@ from reportlab.lib.units import inch
 # Page setup
 st.set_page_config(page_title="Compliance Advisor Pro", layout="wide")
 
-# ----------------------------
-# Background Image and Styling
-# ----------------------------
+# Custom CSS with professional background and readable card
 st.markdown("""
     <style>
-        /* Set background image */
-        .stApp {
-            background-image: url("https://images.unsplash.com/photo-1507842217343-583bb7270b66");
-            background-attachment: fixed;
-            background-size: cover;
-            background-repeat: no-repeat;
-        }
+    /* Background image */
+    .stApp {
+        background-image: url("https://images.unsplash.com/photo-1507842217343-583bb7270b66");
+        background-attachment: fixed;
+        background-size: cover;
+        background-repeat: no-repeat;
+    }
 
-        /* White card effect for content widgets */
-        .stMarkdown, .stTextInput, .stTextArea, .stDataFrame, 
-        .stDownloadButton, .stRadio, .stSelectbox, .stExpander {
-            background-color: rgba(255, 255, 255, 0.85);
-            border-radius: 12px;
-            padding: 10px;
-        }
+    /* White semi-transparent content container */
+    .block-container {
+        background-color: rgba(255, 255, 255, 0.90) !important;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
 
-        /* Buttons styling */
-        .stButton>button {
-            background-color: #003366;
-            color: white;
-            border-radius: 8px;
-            font-weight: bold;
-            padding: 0.5em 1.5em;
-            border: none;
-        }
-        .stButton>button:hover {
-            background-color: #00509e;
-            color: #ffffff;
-        }
+    /* Buttons */
+    .stButton>button {
+        background-color: #003366;
+        color: white;
+        border-radius: 8px;
+        font-weight: bold;
+        padding: 0.5em 1.5em;
+        border: none;
+    }
+    .stButton>button:hover {
+        background-color: #00509e;
+        color: #ffffff;
+    }
 
-        /* Headers */
-        h1, h2, h3 {
-            color: #002244;
-            font-family: 'Segoe UI', sans-serif;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
-        }
-
-        /* Existing custom CSS */
-        .title { font-size: 2.5em; color: #003366; font-weight: bold; }
-        .badge { display: inline-block; padding: 0.25em 0.6em; font-size: 90%; font-weight: 600; border-radius: 0.25rem; }
-        .badge-green { background-color: #d4edda; color: #155724; }
-        .badge-red { background-color: #f8d7da; color: #721c24; }
-        .badge-blue { background-color: #d1ecf1; color: #0c5460; }
-        .badge-gold { background-color: #fff3cd; color: #856404; }
-        .priority-high { border-left: 4px solid #dc3545; padding-left: 10px; margin: 8px 0; }
-        .priority-standard { border-left: 4px solid #fd7e14; padding-left: 10px; margin: 8px 0; }
-        .dashboard-card { border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .footer { text-align: center; font-size: 0.9em; color: gray; margin-top: 3rem; }
+    /* Headers and badges */
+    h1, h2, h3 {
+        color: #002244;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    }
+    .title { font-size: 2.5em; color: #003366; font-weight: bold; }
+    .badge { display: inline-block; padding: 0.25em 0.6em; font-size: 90%; font-weight: 600; border-radius: 0.25rem; }
+    .priority-high { border-left: 4px solid #dc3545; padding-left: 10px; margin: 8px 0; }
+    .priority-standard { border-left: 4px solid #fd7e14; padding-left: 10px; margin: 8px 0; }
+    .dashboard-card { border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .footer { text-align: center; font-size: 0.9em; color: gray; margin-top: 3rem; }
     </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------
+# Wrap all app content inside the readable card
+st.markdown("<div class='block-container'>", unsafe_allow_html=True)
+
 # Header
-# -----------------------------
 st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow_html=True)
 st.markdown("AI-powered compliance analysis for your exact requirements")
 
-# -----------------------------
 # User Authentication
-# -----------------------------
 if 'username' not in st.session_state:
     st.session_state.username = None
 
@@ -92,9 +82,7 @@ if st.session_state.username is None:
 else:
     st.success(f"Welcome, {st.session_state.username}!")
 
-    # -----------------------------
     # Load data from Google Sheets
-    # -----------------------------
     @st.cache_data
     def load_data():
         sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"
@@ -102,11 +90,13 @@ else:
         try:
             df = pd.read_csv(sheet_url)
             
+            # Validate columns
             required_cols = [
                 'Compliance Name', 'Domain', 'Applies To',
                 'Checklist 1', 'Checklist 2', 'Checklist 3',
                 'Followed By Compunnel', 'Why Required'
             ]
+            
             missing_cols = [col for col in required_cols if col not in df.columns]
             if missing_cols:
                 st.error(f"Missing required columns: {', '.join(missing_cols)}")
@@ -119,18 +109,14 @@ else:
 
     compliance_df = load_data()
 
-    # -----------------------------
     # Project input
-    # -----------------------------
     project_description = st.text_area(
         "Describe your project (include data types and regions):",
         height=150,
         placeholder="e.g., 'Healthcare app storing patient records in India with EU users...'"
     )
 
-    # -----------------------------
     # Analysis functions
-    # -----------------------------
     def match_category(text, categories):
         text = text.lower()
         scores = {k: 0 for k in categories}
@@ -172,17 +158,19 @@ else:
             "Brazil": ["brazil", "lgpd"],
             "global": ["global", "international", "worldwide"]
         }
-
         matched_domain = match_category(description, domains)
         matched_data_type = match_category(description, data_types)
         matched_region = match_category(description, regions)
-
         compliance_matches = []
         for _, row in compliance_df.iterrows():
             row_domains = [x.strip().lower() for x in str(row['Domain']).split(",")]
             domain_match = "all" in row_domains or matched_domain in row_domains
             applies_to = [x.strip().lower() for x in str(row['Applies To']).split(",")]
-            applies_match = ("all" in applies_to or matched_region.lower() in applies_to or matched_data_type.lower() in applies_to)
+            applies_match = (
+                "all" in applies_to or 
+                matched_region.lower() in applies_to or 
+                matched_data_type.lower() in applies_to
+            )
             if domain_match and applies_match:
                 checklist = [str(item) for item in [row['Checklist 1'], row['Checklist 2'], row['Checklist 3']] if pd.notna(item)]
                 compliance_matches.append({
@@ -195,16 +183,39 @@ else:
                     "checklist": checklist,
                     "why": row.get("Why Required", "")
                 })
+        return {"domain": matched_domain, "data_type": matched_data_type, "region": matched_region, "compliance_matches": compliance_matches}
 
-        return {
-            "domain": matched_domain,
-            "data_type": matched_data_type,
-            "region": matched_region,
-            "compliance_matches": compliance_matches
-        }
+    def generate_pdf_report(project_info, compliance_data):
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        styles = getSampleStyleSheet()
+        story = []
+        story.append(Paragraph("Compliance Assessment Report", styles['Title']))
+        story.append(Spacer(1, 12))
+        story.append(Paragraph("Project Details", styles['Heading2']))
+        story.append(Paragraph(f"<b>Domain:</b> {project_info['domain']}<br/><b>Data Type:</b> {project_info['data_type']}<br/><b>Region:</b> {project_info['region']}", styles['BodyText']))
+        story.append(Spacer(1, 24))
+        met = [c for c in compliance_data if c['followed']]
+        pending = [c for c in compliance_data if not c['followed']]
+        story.append(Paragraph("Compliance Status", styles['Heading2']))
+        status_table = Table([["Total Requirements", len(compliance_data)], ["Compliant", f"{len(met)} ({len(met)/len(compliance_data):.0%})"], ["Pending", f"{len(pending)} ({len(pending)/len(compliance_data):.0%})"]], colWidths=[2*inch, 1.5*inch])
+        status_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor("#003366")),('TEXTCOLOR', (0,0), (-1,0), colors.white),('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),('BOX', (0,0), (-1,-1), 0.5, colors.grey)]))
+        story.append(status_table)
+        story.append(Spacer(1, 24))
+        story.append(Paragraph("Detailed Requirements", styles['Heading2']))
+        data = [["Requirement", "Status", "Checklist"]]
+        for item in compliance_data:
+            status = "Compliant" if item['followed'] else "Pending"
+            color = colors.green if item['followed'] else colors.red
+            checklist = "<br/>".join([f"• {point}" for point in item['checklist']])
+            data.append([Paragraph(item['name'], styles['BodyText']), Paragraph(f"<font color='{color.hexval()}'>{status}</font>", styles['BodyText']), Paragraph(checklist, styles['BodyText'])])
+        table = Table(data, colWidths=[2.5*inch, 1*inch, 2.5*inch])
+        table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor("#003366")),('TEXTCOLOR', (0,0), (-1,0), colors.white),('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),('FONTSIZE', (0,0), (-1,0), 10),('ALIGN', (0,0), (-1,0), 'CENTER'),('VALIGN', (0,0), (-1,0), 'MIDDLE'),('INNERGRID', (0,0), (-1,-1), 0.5, colors.lightgrey),('BOX', (0,0), (-1,-1), 0.5, colors.grey)]))
+        story.append(table)
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
 
-    # -----------------------------
-    # PDF generation and analysis logic
-    # -----------------------------
-    # ... (Rest of your original logic remains unchanged)
-    # Just insert all your previous analyze, PDF generation, metrics, reports, footer here.
+# Main logic, analysis buttons, reports, footer goes here as in your previous code...
+
+st.markdown("</div>", unsafe_allow_html=True)  # Close the block-container
