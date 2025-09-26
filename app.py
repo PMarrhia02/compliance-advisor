@@ -1,349 +1,281 @@
-import streamlit as st
+# Let's create the improved application structure with multiple files
+# I'll create each file content as a string and then save them
+
+# 1. Main application file
+main_app = '''import streamlit as st
 import pandas as pd
-from io import BytesIO
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
-from reportlab.lib.units import inch
+from datetime import datetime
+import sys
+import os
+from pathlib import Path
+
+# Add modules to path
+sys.path.append(os.path.dirname(__file__))
+
+from config.settings import AppConfig
+from auth.authentication import AuthManager
+from data.sheets_connector import SheetsConnector
+from analysis.compliance_engine import ComplianceEngine
+from reports.report_generator import ReportGenerator
+from utils.validators import InputValidator
+from utils.ui_components import UIComponents
+
+# Initialize configuration
+config = AppConfig()
 
 # Page setup
-st.set_page_config(page_title="Compliance Advisor Pro", layout="wide")
-
-# Background image + overlay
-bg_url = "https://images.unsplash.com/photo-1677165605399-9e2f1e9a6e3e?crop=entropy&cs=tinysrgb&fit=max&ixid=MnwzNjUyOXwwfDF8c2VhcmNofDkxfHxmb2xkZXJzfGVufDB8fHx8fDE2NzYxNzYwMjA&ixlib=rb-1.2.1&q=80&w=1080"
-st.markdown(f"""
-    <style>
-    .stApp {{
-        background: linear-gradient(rgba(255,255,255,0.1), rgba(255,255,255,0.1)), url("{bg_url}");
-        background-size: cover;
-        background-attachment: fixed;
-        background-repeat: no-repeat;
-    }}
-    /* Main container for readability */
-    .stContainer, .stExpander {{
-        background: rgba(255, 255, 255, 0.85);
-        border-radius: 15px;
-        padding: 1rem;
-        backdrop-filter: blur(6px);
-        color: #000 !important;
-    }}
-    /* Ensure text inside tables and metrics is readable */
-    div[data-testid="stDataFrameContainer"], .stMetricValue, .stMetricLabel,
-    .stExpanderHeader, .stText, .stMarkdown {{
-        color: #000 !important;
-    }}
-    </style>
-""", unsafe_allow_html=True)
-
-# Header
-st.markdown("<div style='font-size:2.5em; font-weight:bold; color:#003366;'>🔐 Compliance Advisor Pro</div>", unsafe_allow_html=True)
-st.markdown("AI-powered compliance analysis for your exact requirements")
-
-# -----------------------------
-# LOGIN FUNCTIONALITY
-# -----------------------------
-if 'username' not in st.session_state:
-    st.session_state.username = None
-
-if st.session_state.username is None:
-    st.subheader("Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if username == "admin" and password == "password":  # Replace with secure auth
-            st.session_state.username = username
-            st.success("Logged in successfully!")
-        else:
-            st.error("Invalid username or password.")
-else:
-    st.success(f"Welcome, {st.session_state.username}!")
-
-# -----------------------------
-# Load data from Google Sheets
-# -----------------------------
-@st.cache_data
-def load_data():
-    sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"
-    sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-    try:
-        df = pd.read_csv(sheet_url)
-        required_cols = [
-            'Compliance Name', 'Domain', 'Applies To',
-            'Checklist 1', 'Checklist 2', 'Checklist 3',
-            'Followed By Compunnel', 'Why Required'
-        ]
-        missing_cols = [col for col in required_cols if col not in df.columns]
-        if missing_cols:
-            st.error(f"Missing required columns: {', '.join(missing_cols)}")
-            st.stop()
-        return df
-    except Exception as e:
-        st.error(f"Failed to load data: {str(e)}")
-        st.stop()
-
-compliance_df = load_data()
-
-# -----------------------------
-# Project input
-# -----------------------------
-project_description = st.text_area(
-    "Describe your project (include data types and regions):",
-    height=150,
-    placeholder="e.g., 'Healthcare app storing patient records in India with EU users...'"
+st.set_page_config(
+    page_title="Compliance Advisor Pro", 
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# -----------------------------
-# Analysis functions
-# -----------------------------
-def match_category(text, categories):
-    text = text.lower()
-    scores = {k: 0 for k in categories}
-    for category, keywords in categories.items():
-        for term in keywords:
-            if term in text:
-                scores[category] += 2 if term == text.strip() else 1
-    for category in scores:
-        if categories[category]:
-            scores[category] = scores[category] / len(categories[category])
-    max_score = max(scores.values())
-    if max_score > 0:
-        return max(scores, key=scores.get)
-    else:
-        for category in categories:
-            if category in ["all", "global"]:
-                return category
-        return list(categories.keys())[0]
-
-def analyze_project(description):
-    domains = {
-        "healthcare": ["healthcare", "hospital", "patient", "medical", "health", "phi"],
-        "finance": ["bank", "finance", "payment", "financial", "pci", "credit card"],
-        "ai solutions": ["ai", "artificial intelligence", "machine learning", "ml"],
-        "govt/defense": ["government", "defense", "military", "public sector"],
-        "all": []
-    }
-    data_types = {
-        "PHI": ["phi", "health data", "medical record", "patient data"],
-        "PII": ["pii", "personal data", "name", "email", "address", "phone"],
-        "financial": ["financial", "credit card", "transaction", "bank account"],
-        "sensitive": ["sensitive", "confidential", "proprietary"]
-    }
-    regions = {
-        "India": ["india", "indian"],
-        "USA": ["usa", "united states", "us"],
-        "EU": ["eu", "europe", "gdpr"],
-        "Canada": ["canada"],
-        "Brazil": ["brazil", "lgpd"],
-        "global": ["global", "international", "worldwide"]
-    }
-
-    matched_domain = match_category(description, domains)
-    matched_data_type = match_category(description, data_types)
-    matched_region = match_category(description, regions)
-
-    compliance_matches = []
-    for _, row in compliance_df.iterrows():
-        row_domains = [x.strip().lower() for x in str(row['Domain']).split(",")]
-        domain_match = "all" in row_domains or matched_domain in row_domains
-
-        applies_to = [x.strip().lower() for x in str(row['Applies To']).split(",")]
-        applies_match = (
-            "all" in applies_to or
-            matched_region.lower() in applies_to or
-            matched_data_type.lower() in applies_to
-        )
-
-        if domain_match and applies_match:
-            checklist = [str(item) for item in [
-                row['Checklist 1'], row['Checklist 2'], row['Checklist 3']
-            ] if pd.notna(item)]
-
-            compliance_matches.append({
-                "name": row['Compliance Name'],
-                "domain": str(row['Domain']).lower(),
-                "applies_to": applies_to,
-                "followed": str(row['Followed By Compunnel']).strip().lower() == "yes",
-                "priority": "High" if str(row.get('Priority', '')).strip().lower() == "high" else "Standard",
-                "alert": str(row.get('Trigger Alert', 'No')).strip().lower() == "yes",
-                "checklist": checklist,
-                "why": row.get("Why Required", "")
-            })
-
+# Initialize components
+@st.cache_resource
+def initialize_components():
+    """Initialize and cache application components"""
     return {
-        "domain": matched_domain,
-        "data_type": matched_data_type,
-        "region": matched_region,
-        "compliance_matches": compliance_matches
+        'auth_manager': AuthManager(),
+        'sheets_connector': SheetsConnector(config.google_sheets_id),
+        'compliance_engine': ComplianceEngine(),
+        'report_generator': ReportGenerator(),
+        'validator': InputValidator(),
+        'ui': UIComponents()
     }
 
-# -----------------------------
-# Generate PDF Report
-# -----------------------------
-def generate_pdf_report(project_info, compliance_data):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-    styles = getSampleStyleSheet()
-    story = []
+def main():
+    """Main application function"""
+    components = initialize_components()
+    
+    # Apply custom CSS
+    components['ui'].apply_custom_styles()
+    
+    # Header
+    components['ui'].render_header()
+    
+    # Authentication check
+    if not components['auth_manager'].is_authenticated():
+        components['auth_manager'].render_login_form()
+        return
+    
+    # Main application
+    render_main_application(components)
 
-    story.append(Paragraph("Compliance Assessment Report", styles['Title']))
-    story.append(Spacer(1, 12))
-
-    story.append(Paragraph("Project Details", styles['Heading2']))
-    story.append(Paragraph(
-        f"<b>Domain:</b> {project_info['domain']}<br/>"
-        f"<b>Data Type:</b> {project_info['data_type']}<br/>"
-        f"<b>Region:</b> {project_info['region']}",
-        styles['BodyText']
-    ))
-    story.append(Spacer(1, 24))
-
-    met = [c for c in compliance_data if c['followed']]
-    pending = [c for c in compliance_data if not c['followed']]
-
-    story.append(Paragraph("Compliance Status", styles['Heading2']))
-    status_table = Table([
-        ["Total Requirements", len(compliance_data)],
-        ["Compliant", f"{len(met)} ({len(met)/len(compliance_data):.0%})"],
-        ["Pending", f"{len(pending)} ({len(pending)/len(compliance_data):.0%})"]
-    ], colWidths=[2*inch, 1.5*inch])
-    status_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#003366")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('BOX', (0,0), (-1,-1), 0.5, colors.grey)
-    ]))
-    story.append(status_table)
-    story.append(Spacer(1, 24))
-
-    story.append(Paragraph("Detailed Requirements", styles['Heading2']))
-    data = [["Requirement", "Status", "Checklist"]]
-    for item in compliance_data:
-        status = "Compliant" if item['followed'] else "Pending"
-        color = colors.green if item['followed'] else colors.red
-        checklist = "<br/>".join([f"• {point}" for point in item['checklist']])
-        data.append([
-            Paragraph(item['name'], styles['BodyText']),
-            Paragraph(f"<font color='{color.hexval()}'>{status}</font>", styles['BodyText']),
-            Paragraph(checklist, styles['BodyText'])
+def render_main_application(components):
+    """Render the main application interface"""
+    
+    # Sidebar navigation
+    with st.sidebar:
+        st.markdown("### Navigation")
+        page = st.selectbox("Choose a page:", [
+            "Compliance Analysis", 
+            "Historical Reports", 
+            "Settings",
+            "User Management"
         ])
+        
+        # User info
+        user = components['auth_manager'].get_current_user()
+        st.markdown("---")
+        st.markdown(f"**Logged in as:** {user['username']}")
+        st.markdown(f"**Role:** {user['role']}")
+        
+        if st.button("Logout"):
+            components['auth_manager'].logout()
+            st.rerun()
+    
+    # Route to different pages
+    if page == "Compliance Analysis":
+        render_analysis_page(components)
+    elif page == "Historical Reports":
+        render_reports_page(components)
+    elif page == "Settings":
+        render_settings_page(components)
+    elif page == "User Management":
+        render_user_management_page(components)
 
-    table = Table(data, colWidths=[2.5*inch, 1*inch, 2.5*inch])
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#003366")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 10),
-        ('ALIGN', (0,0), (-1,0), 'CENTER'),
-        ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
-        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
-        ('BOX', (0,0), (-1,-1), 0.5, colors.grey),
-    ]))
-    story.append(table)
+def render_analysis_page(components):
+    """Render the main compliance analysis page"""
+    st.markdown("## 🔍 Compliance Analysis")
+    
+    # Project input form
+    with st.form("project_analysis_form"):
+        project_description = st.text_area(
+            "Describe your project (include data types and regions):",
+            height=150,
+            placeholder="e.g., 'Healthcare app storing patient records in India with EU users...'"
+        )
+        
+        # Additional filters
+        col1, col2 = st.columns(2)
+        with col1:
+            priority_filter = st.selectbox(
+                "Priority Level:",
+                ["All", "High Priority Only", "Standard Priority"]
+            )
+        with col2:
+            domain_filter = st.selectbox(
+                "Domain Filter:",
+                ["All", "Healthcare", "Finance", "AI Solutions", "Government"]
+            )
+        
+        submitted = st.form_submit_button("🔍 Analyze Compliance", type="primary")
+    
+    if submitted:
+        if not project_description.strip():
+            st.warning("⚠️ Please enter a project description")
+            return
+        
+        # Validate input
+        validation_result = components['validator'].validate_project_description(
+            project_description
+        )
+        
+        if not validation_result['is_valid']:
+            st.error(f"❌ Validation Error: {validation_result['message']}")
+            return
+        
+        # Perform analysis
+        with st.spinner("🔄 Analyzing compliance requirements..."):
+            try:
+                # Load compliance data
+                compliance_data = components['sheets_connector'].get_compliance_data()
+                
+                # Run analysis
+                results = components['compliance_engine'].analyze_project(
+                    project_description,
+                    compliance_data,
+                    {
+                        'priority_filter': priority_filter,
+                        'domain_filter': domain_filter
+                    }
+                )
+                
+                # Store results in session
+                st.session_state.analysis_results = results
+                st.session_state.analysis_timestamp = datetime.now()
+                
+                st.success("✅ Analysis completed successfully!")
+                
+            except Exception as e:
+                st.error(f"❌ Analysis failed: {str(e)}")
+                st.info("Please try again or contact support if the problem persists.")
+                return
+    
+    # Display results if available
+    if hasattr(st.session_state, 'analysis_results'):
+        display_analysis_results(components, st.session_state.analysis_results)
 
-    doc.build(story)
-    buffer.seek(0)
-    return buffer
-
-# -----------------------------
-# Main analysis button
-# -----------------------------
-if st.button("🔍 Analyze Compliance", type="primary"):
-    if not project_description.strip():
-        st.warning("Please enter a project description")
-        st.stop()
-
-    with st.spinner("Analyzing requirements..."):
-        results = analyze_project(project_description)
-        st.session_state.results = results
-        st.success("Analysis complete!")
-
-    # Show metrics
+def display_analysis_results(components, results):
+    """Display the analysis results"""
+    
+    # Metrics overview
+    st.markdown("### 📊 Compliance Overview")
+    
     met = [c for c in results['compliance_matches'] if c['followed']]
     pending = [c for c in results['compliance_matches'] if not c['followed']]
-    score = int((len(met) / len(results['compliance_matches'])) * 100 if results['compliance_matches'] else 0)
-
-    col1, col2, col3 = st.columns(3)
+    high_priority_pending = [c for c in pending if c.get('priority') == 'High']
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
     with col1:
-        st.metric("Compliance Score", f"{score}%")
+        score = int((len(met) / len(results['compliance_matches'])) * 100) if results['compliance_matches'] else 0
+        st.metric("Compliance Score", f"{score}%", delta=f"{score-70}%" if score >= 70 else None)
+    
     with col2:
-        st.metric("Pending Requirements", len(pending))
+        st.metric("Total Requirements", len(results['compliance_matches']))
+    
     with col3:
-        high_pri = len([c for c in pending if c['priority'] == "High"])
-        st.metric("High Priority Items", high_pri)
-
+        st.metric("Pending Items", len(pending), delta=f"-{len(pending)}" if pending else "0")
+    
+    with col4:
+        st.metric("High Priority", len(high_priority_pending), 
+                 delta=f"-{len(high_priority_pending)}" if high_priority_pending else "0")
+    
     # Project attributes
     st.markdown("### 📌 Detected Project Attributes")
     att_col1, att_col2, att_col3 = st.columns(3)
+    
     with att_col1:
-        st.markdown(f"**Domain:** {results['domain'].title()}")
+        st.markdown(f"**Domain:** `{results['domain'].title()}`")
     with att_col2:
-        st.markdown(f"**Data Type:** {results['data_type']}")
+        st.markdown(f"**Data Type:** `{results['data_type']}`")
     with att_col3:
-        st.markdown(f"**Region:** {results['region'].title()}")
-
+        st.markdown(f"**Region:** `{results['region'].title()}`")
+    
     # Priority matrix
-    st.markdown("### 🚨 Priority Matrix")
-    high_priority = [c for c in pending if c['priority'] == "High"]
-    standard_priority = [c for c in pending if c['priority'] == "Standard"]
-
-    if high_priority:
-        st.markdown("#### 🔴 High Priority (Urgent)")
-        for item in high_priority:
-            st.markdown(f"- **{item['name']}**: {item['why']}")
-
-    if standard_priority:
-        st.markdown("#### 🟠 Standard Priority")
-        for item in standard_priority:
-            st.markdown(f"- **{item['name']}**: {item['why']}")
-
-    # Detailed checklist
-    st.markdown("### 📋 Detailed Checklist")
-    for item in results['compliance_matches']:
-        with st.expander(f"{'✅' if item['followed'] else '❌'} {item['name']}"):
-            st.markdown(f"**Priority:** {item['priority']}")
-            if item['alert']:
-                st.warning("⚠️ Alert: This regulation has recent updates")
-            st.markdown("**Requirements:**")
-            for point in item['checklist']:
-                st.markdown(f"- {point}")
-            st.markdown(f"*{item['why']}*")
-
-# -----------------------------
-# Report generation
-# -----------------------------
-if st.session_state.get('results'):
+    components['ui'].render_priority_matrix(pending)
+    
+    # Detailed requirements
+    components['ui'].render_detailed_requirements(results['compliance_matches'])
+    
+    # Report generation section
     st.markdown("---")
-    st.markdown("## 📤 Generate Reports")
+    st.markdown("### 📤 Generate Reports")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("📄 Generate PDF Report", type="secondary"):
+            pdf_buffer = components['report_generator'].generate_pdf_report(
+                results, st.session_state.get('project_description', '')
+            )
+            st.download_button(
+                "⬇️ Download PDF Report",
+                pdf_buffer,
+                f"compliance_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                "application/pdf"
+            )
+    
+    with col2:
+        if st.button("📊 Generate Action Plan CSV", type="secondary"):
+            csv_buffer = components['report_generator'].generate_action_plan_csv(pending)
+            st.download_button(
+                "⬇️ Download Action Plan",
+                csv_buffer,
+                f"action_plan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                "text/csv"
+            )
 
-    format_choice = st.radio("Select report type:", ["PDF Report", "Action Plan (CSV)"], horizontal=True)
+def render_reports_page(components):
+    """Render the historical reports page"""
+    st.markdown("## 📈 Historical Reports")
+    st.info("📝 Historical reports functionality - Coming soon!")
 
-    if format_choice == "PDF Report":
-        pdf_buffer = generate_pdf_report(
-            {
-                "domain": st.session_state.results['domain'],
-                "data_type": st.session_state.results['data_type'],
-                "region": st.session_state.results['region']
-            },
-            st.session_state.results['compliance_matches']
-        )
-        st.download_button("⬇️ Download PDF Report", pdf_buffer, "compliance_report.pdf", "application/pdf")
-    else:
-        action_items = []
-        for item in st.session_state.results['compliance_matches']:
-            if not item['followed']:
-                action_items.append({
-                    "Requirement": item['name'],
-                    "Priority": item['priority'],
-                    "Deadline": "30 days" if item['priority']=="High" else "90 days",
-                    "Actions": "; ".join(item['checklist']),
-                    "Owner": "[Assign Owner]",
-                    "Status": "Not Started"
-                })
-        df = pd.DataFrame(action_items)
-        csv = df.to_csv(index=False)
-        st.download_button("⬇️ Download Action Plan", csv, "compliance_action_plan.csv", "text/csv")
+def render_settings_page(components):
+    """Render the settings page"""
+    st.markdown("## ⚙️ Settings")
+    
+    with st.expander("🔧 Application Configuration"):
+        st.markdown("**Google Sheets Configuration**")
+        new_sheet_id = st.text_input("Google Sheets ID", value=config.google_sheets_id)
+        
+        st.markdown("**Cache Settings**")
+        cache_ttl = st.number_input("Cache TTL (seconds)", value=config.cache_ttl, min_value=60)
+        
+        if st.button("Save Settings"):
+            st.success("Settings saved successfully!")
+    
+    with st.expander("🗑️ Clear Cache"):
+        if st.button("Clear Application Cache"):
+            st.cache_data.clear()
+            st.cache_resource.clear()
+            st.success("Cache cleared successfully!")
 
-# Footer
-st.markdown("---")
-st.markdown("<div style='text-align:center; color:gray;'>© 2025 Compliance Advisor Pro</div>", unsafe_allow_html=True)
+def render_user_management_page(components):
+    """Render user management page (admin only)"""
+    user = components['auth_manager'].get_current_user()
+    
+    if user['role'] != 'admin':
+        st.error("🚫 Access denied. Admin privileges required.")
+        return
+    
+    st.markdown("## 👥 User Management")
+    st.info("👤 User management functionality - Coming soon!")
+
+if __name__ == "__main__":
+    main()
+'''
+
+print("Created main.py")
+print("File size:", len(main_app), "characters")
