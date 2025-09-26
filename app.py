@@ -172,3 +172,4 @@ else:
     # -----------------------------
     # Just replace the old match_category with this stricter one
     # All functionality like PDF/CSV, login, background stays
+
