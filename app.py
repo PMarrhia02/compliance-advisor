@@ -14,7 +14,7 @@ names = ['Admin', 'Viewer']
 usernames = ['admin', 'viewer']
 passwords = ['12345', '98765']  # Plain text passwords for demo (replace in production)
 
-hashed_pw = Hasher(passwords).generate()
+hashed_pw = Hasher().generate(passwords)
 
 authenticator = Authenticate(names, usernames, hashed_pw, "complianceadvisor", "abcdef", cookie_expiry_days=30)
 
