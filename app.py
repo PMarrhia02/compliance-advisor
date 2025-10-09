@@ -7,19 +7,19 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-from streamlit_authenticator import Hasher, Authenticate
+from streamlit_authenticator import Authenticate
 
 # ------ AUTHENTICATION SETUP ------
 names = ['Admin', 'Viewer']
 usernames = ['admin', 'viewer']
-passwords = ['12345', '98765']  # Plain text passwords for example
 
-hashed_pw = Hasher().generate(passwords)
+# Plain-text passwords for demonstration ONLY (not secure)
+plaintext_passwords = ['12345', '98765']
 
 credentials = {
     "usernames": {
-        "admin": {"name": "Admin", "password": hashed_pw[0]},
-        "viewer": {"name": "Viewer", "password": hashed_pw[1]},
+        "admin": {"name": "Admin", "password": plaintext_passwords[0]},
+        "viewer": {"name": "Viewer", "password": plaintext_passwords[1]},
     }
 }
 
@@ -31,6 +31,7 @@ authenticator = Authenticate(
 )
 
 name, authentication_status, username = authenticator.login('Login', 'main')
+
 if authentication_status is False:
     st.error('Invalid credentials')
     st.stop()
