@@ -1,11 +1,7 @@
 streamlit>=1.28.0
 pandas>=2.0.0
 reportlab>=4.0.0
-plotly>=5.0.0
-bcrypt>=4.0.0
-spacy>=3.7.0
-python-dotenv>=1.0.0
-streamlit-js-eval>=0.1.0
-watchdog>=3.0.0  # For cache auto-refresh
-PyGithub==2.2.0
-authlib==1.2.1
+matplotlib>=3.0.0
+streamlit-authenticator>=0.4.2
+gspread>=5.7.0
+oauth2client>=4.1.3
