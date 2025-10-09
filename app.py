@@ -24,8 +24,8 @@ names = ["Admin", "Viewer"]
 usernames = ["admin", "viewer"]
 passwords = ["12345", "98765"]
 
-# Hash passwords safely for Streamlit Authenticator v0.4.2+
-hashed_pw = Hasher(passwords).generate()
+# ✅ Correct password hashing for v0.4.2+
+hashed_pw = Hasher.generate(passwords)
 
 credentials = {
     "usernames": {
@@ -68,8 +68,13 @@ else:
 @st.cache_data(ttl=600)
 def load_compliance_data():
     try:
-        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+        scope = [
+            "https://spreadsheets.google.com/feeds",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        creds = ServiceAccountCredentials.from_json_keyfile_name(
+            "credentials.json", scope
+        )
         client = gspread.authorize(creds)
         sheet = client.open("Compunnel_Compliance_DB").sheet1
         data = pd.DataFrame(sheet.get_all_records())
@@ -86,7 +91,7 @@ compliance_df = load_compliance_data()
 st.subheader("📝 Describe your project")
 project_description = st.text_area(
     "Enter project details (domain, data type, region, etc.)",
-    placeholder="Example: Healthcare project for US clients storing patient data in the cloud..."
+    placeholder="Example: Healthcare project for US clients storing patient data in the cloud...",
 )
 
 # ==============================================
@@ -100,9 +105,9 @@ def get_compliance_recommendations(description, df):
     matched_rows = []
 
     for _, row in df.iterrows():
-        domain = str(row["Domain"]).lower()
-        applies_to = str(row["Applies To"]).lower()
-        checklist = str(row["Checklist items"]).lower()
+        domain = str(row.get("Domain", "")).lower()
+        applies_to = str(row.get("Applies To", "")).lower()
+        checklist = str(row.get("Checklist items", "")).lower()
 
         if any(keyword in desc for keyword in [domain, applies_to, checklist]):
             matched_rows.append(row)
@@ -136,7 +141,12 @@ def generate_pdf(data):
 
     story.append(Paragraph("Compunnel | Compliance Advisor Pro Report", styles["Heading1"]))
     story.append(Spacer(1, 12))
-    story.append(Paragraph(f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles["Normal"]))
+    story.append(
+        Paragraph(
+            f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            styles["Normal"],
+        )
+    )
     story.append(Spacer(1, 12))
 
     for _, row in data.iterrows():
@@ -153,25 +163,25 @@ def generate_pdf(data):
     return buffer
 
 if st.button("📄 Download PDF Report"):
-    if 'results_df' in locals() and not results_df.empty:
+    if "results_df" in locals() and not results_df.empty:
         pdf_buffer = generate_pdf(results_df)
         st.download_button(
             label="⬇️ Download Report as PDF",
             data=pdf_buffer,
             file_name="Compliance_Report.pdf",
-            mime="application/pdf"
+            mime="application/pdf",
         )
     else:
         st.warning("No analysis results found. Please run the analysis first.")
 
 if st.button("📊 Download CSV Report"):
-    if 'results_df' in locals() and not results_df.empty:
-        csv_data = results_df.to_csv(index=False).encode('utf-8')
+    if "results_df" in locals() and not results_df.empty:
+        csv_data = results_df.to_csv(index=False).encode("utf-8")
         st.download_button(
             label="⬇️ Download Report as CSV",
             data=csv_data,
             file_name="Compliance_Report.csv",
-            mime="text/csv"
+            mime="text/csv",
         )
     else:
         st.warning("No analysis results found. Please run the analysis first.")
