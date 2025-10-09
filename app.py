@@ -8,13 +8,19 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from streamlit_authenticator import Hasher, Authenticate
+import importlib
 
-# ------ AUTHENTICATION SETUP ------
+# ------------------ AUTHENTICATION SETUP ------------------
+
 names = ['Admin', 'Viewer']
 usernames = ['admin', 'viewer']
-passwords = ['12345', '98765']  # Plain text passwords for demo
+passwords = ['12345', '98765']  # Plain text passwords for demo use only
 
-hashed_pw = Hasher().generate(passwords)
+# Handle Hasher version compatibility
+try:
+    hashed_pw = Hasher.generate(passwords)  # ✅ For latest versions (>=0.3.1)
+except AttributeError:
+    hashed_pw = Hasher().generate(passwords)  # ✅ Fallback for older versions
 
 credentials = {
     "usernames": {
@@ -30,7 +36,7 @@ authenticator = Authenticate(
     cookie_expiry_days=30
 )
 
-name, authentication_status, username = authenticator.login('main')  # Correct call here
+name, authentication_status, username = authenticator.login('main')  # login UI
 
 if authentication_status is False:
     st.error('Invalid credentials')
@@ -39,12 +45,15 @@ if authentication_status is None:
     st.warning('Please enter your credentials')
     st.stop()
 
-# ------ PAGE SETUP AND STYLES ------
+# ------------------ PAGE CONFIGURATION ------------------
+
 st.set_page_config(page_title="Compliance Advisor Pro", layout="wide")
+
 st.markdown("""
 <style>
     .title { font-size: 2.5em; color: #003366; font-weight: bold; }
-    .dashboard-card { border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .dashboard-card { border-radius: 10px; padding: 15px; margin-bottom: 15px;
+                      box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .footer { text-align: center; font-size: 0.9em; color: gray; margin-top: 3rem; }
 </style>
 """, unsafe_allow_html=True)
@@ -52,7 +61,8 @@ st.markdown("""
 st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow_html=True)
 st.markdown("AI-powered compliance analysis and tracking for your requirements")
 
-# ------ LOAD DATA FROM GOOGLE SHEETS ------
+# ------------------ LOAD GOOGLE SHEET DATA ------------------
+
 @st.cache_data
 def load_data(sheet_id, gid=None):
     base_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
@@ -60,7 +70,7 @@ def load_data(sheet_id, gid=None):
     df = pd.read_csv(url)
     return df
 
-SHEET_ID = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"  # Replace with your actual Google Sheet ID
+SHEET_ID = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"  # ✅ replace with your actual Google Sheet ID
 
 try:
     compliance_df = load_data(SHEET_ID)
@@ -69,11 +79,12 @@ except Exception as e:
     st.stop()
 
 try:
-    breach_log = load_data(SHEET_ID, gid="YOUR_BREACH_LOG_GID")  # Replace with actual gid or remove parameter
+    breach_log = load_data(SHEET_ID, gid="YOUR_BREACH_LOG_GID")  # replace with actual gid if needed
 except Exception:
     breach_log = pd.DataFrame(columns=["Date", "Project", "Compliance Name", "Description", "Status", "Owner"])
 
-# ------ USER INTERFACE ------
+# ------------------ USER INPUT ------------------
+
 project_description = st.text_area(
     "Describe your project (include data types and regions):",
     height=120,
@@ -81,7 +92,8 @@ project_description = st.text_area(
     help="This helps match your project to compliance requirements."
 )
 
-# ------ COMPLIANCE ANALYSIS ------
+# ------------------ COMPLIANCE ANALYSIS ------------------
+
 def match_category(text, categories):
     text = text.lower()
     scores = {k: 0 for k in categories}
@@ -122,20 +134,28 @@ def analyze_project(description):
         "Brazil": ["brazil", "lgpd"],
         "global": ["global"]
     }
+
     matched_domain = match_category(description, domains)
     matched_data_type = match_category(description, data_types)
     matched_region = match_category(description, regions)
+
     compliance_matches = []
     for _, row in compliance_df.iterrows():
         row_domains = [x.strip().lower() for x in str(row['Domain']).split(",")]
         domain_match = "all" in row_domains or matched_domain in row_domains
+
         applies_to = [x.strip().lower() for x in str(row['Applies To']).split(",")]
-        applies_match = ("all" in applies_to or matched_region.lower() in applies_to
-                         or matched_data_type.lower() in applies_to)
+        applies_match = (
+            "all" in applies_to or
+            matched_region.lower() in applies_to or
+            matched_data_type.lower() in applies_to
+        )
+
         if domain_match and applies_match:
             checklist = [str(item) for item in [
-                row['Checklist 1'], row['Checklist 2'], row['Checklist 3']
+                row.get('Checklist 1'), row.get('Checklist 2'), row.get('Checklist 3')
             ] if pd.notna(item)]
+
             compliance_matches.append({
                 "name": row['Compliance Name'],
                 "domain": str(row['Domain']).lower(),
@@ -146,6 +166,7 @@ def analyze_project(description):
                 "checklist": checklist,
                 "why": row.get("Why Required", "")
             })
+
     return {
         "domain": matched_domain,
         "data_type": matched_data_type,
@@ -153,16 +174,21 @@ def analyze_project(description):
         "compliance_matches": compliance_matches
     }
 
+# ------------------ MAIN ACTION ------------------
+
 if st.button("🔍 Analyze Compliance", type="primary"):
     if not project_description.strip():
         st.warning("Please enter a project description")
         st.stop()
+
     with st.spinner("Analyzing requirements..."):
         results = analyze_project(project_description)
         st.session_state['results'] = results
+
         met = [c for c in results['compliance_matches'] if c['followed']]
         pending = [c for c in results['compliance_matches'] if not c['followed']]
         score = int((len(met) / len(results['compliance_matches'])) * 100 if results['compliance_matches'] else 0)
+
         col1, col2, col3 = st.columns(3)
         with col1:
             st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
@@ -176,17 +202,21 @@ if st.button("🔍 Analyze Compliance", type="primary"):
             st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
             st.metric("High Priority Items", len([c for c in pending if c['priority'] == "High"]))
             st.markdown("</div>", unsafe_allow_html=True)
+
         st.write("#### Compliance Progress Chart")
-        vals = [len(met), len(pending)]
-        plt.bar(["Compliant", "Pending"], vals, color=["green", "orange"])
+        plt.bar(["Compliant", "Pending"], [len(met), len(pending)], color=["green", "orange"])
         st.pyplot(plt)
+
         st.write("#### 📌 Detected Project Attributes")
         st.write(f"- **Domain:** {results['domain']}")
         st.write(f"- **Data Type:** {results['data_type']}")
         st.write(f"- **Region:** {results['region']}")
+
         st.write("#### 📝 Requirements Matrix")
         for req in results['compliance_matches']:
             st.markdown(f"- {'✅' if req['followed'] else '❌'} **{req['name']}** ({req['priority']}): {', '.join(req['checklist'])}")
+
+# ------------------ BREACH LOG SECTION ------------------
 
 st.markdown("---")
 st.markdown("### Compliance Breach & Audit Log")
@@ -199,6 +229,7 @@ with st.expander("Log a New Compliance Breach"):
         status = st.selectbox("Status", ["Open", "Investigating", "Closed"])
         owner = st.text_input("Owner", help="Responsible person or team")
         submit = st.form_submit_button("Submit Breach")
+
         if submit and breach_proj and breach_name and desc:
             new_row = {
                 'Date': datetime.date.today().isoformat(),
@@ -210,7 +241,6 @@ with st.expander("Log a New Compliance Breach"):
             }
             breach_log = pd.concat([breach_log, pd.DataFrame([new_row])], ignore_index=True)
             st.success("Breach logged (not saved to sheet in demo).")
-            # TODO: Add write-back to Google Sheets here if needed
 
 st.write("#### All Breach Records")
 st.dataframe(breach_log)
