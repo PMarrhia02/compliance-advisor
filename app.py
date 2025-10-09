@@ -7,14 +7,16 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-from streamlit_authenticator import Hasher, Authenticate
+from streamlit_authenticator import Authenticate
 
 # ------ AUTHENTICATION SETUP ------
 names = ['Admin', 'Viewer']
 usernames = ['admin', 'viewer']
-passwords = ['12345', '98765']  # Plain text passwords for demo (replace in production)
 
-hashed_pw = Hasher().generate(passwords)
+hashed_pw = [  # Paste the hashed passwords generated from Part 1 here
+    'pbkdf2:sha256:150000$abc123$examplehash1',
+    'pbkdf2:sha256:150000$def456$examplehash2'
+]
 
 authenticator = Authenticate(names, usernames, hashed_pw, "complianceadvisor", "abcdef", cookie_expiry_days=30)
 
@@ -47,15 +49,16 @@ def load_data(sheet_id, gid=None):
     df = pd.read_csv(url)
     return df
 
-SHEET_ID = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"  # Replace this with your actual Google Sheet ID
+SHEET_ID = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"  # Replace with actual Google Sheet ID
 
-# Load main compliance sheet (default tab)
-compliance_df = load_data(SHEET_ID)
-
-# Load breach log sheet (assumed second tab named 'Breach Log'; gid usually you find in URL)
-# If you don't know gid for 'Breach Log', you can omit gid param and it loads default tab.
 try:
-    breach_log = load_data(SHEET_ID, gid="YOUR_BREACH_LOG_GID")  # Replace with actual gid or remove gid param if unsure
+    compliance_df = load_data(SHEET_ID)
+except Exception as e:
+    st.error(f"Error loading compliance data: {e}")
+    st.stop()
+
+try:
+    breach_log = load_data(SHEET_ID, gid="YOUR_BREACH_LOG_GID")  # Replace with actual gid or remove gid param
 except Exception:
     breach_log = pd.DataFrame(columns=["Date", "Project", "Compliance Name", "Description", "Status", "Owner"])
 
@@ -139,7 +142,6 @@ def analyze_project(description):
         "compliance_matches": compliance_matches
     }
 
-# ------ ACTION: ANALYZE ------
 if st.button("🔍 Analyze Compliance", type="primary"):
     if not project_description.strip():
         st.warning("Please enter a project description")
@@ -163,22 +165,18 @@ if st.button("🔍 Analyze Compliance", type="primary"):
             st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
             st.metric("High Priority Items", len([c for c in pending if c['priority'] == "High"]))
             st.markdown("</div>", unsafe_allow_html=True)
-        # Compliance Over Time Chart
         st.write("#### Compliance Progress Chart")
         vals = [len(met), len(pending)]
         plt.bar(["Compliant", "Pending"], vals, color=["green", "orange"])
         st.pyplot(plt)
-        # Show matched categories
         st.write("#### 📌 Detected Project Attributes")
         st.write(f"- **Domain:** {results['domain']}")
         st.write(f"- **Data Type:** {results['data_type']}")
         st.write(f"- **Region:** {results['region']}")
-        # Detailed requirements and priority listing
         st.write("#### 📝 Requirements Matrix")
         for req in results['compliance_matches']:
             st.markdown(f"- {'✅' if req['followed'] else '❌'} **{req['name']}** ({req['priority']}): {', '.join(req['checklist'])}")
 
-# ------ BREACH LOGGING INTERFACE ------
 st.markdown("---")
 st.markdown("### Compliance Breach & Audit Log")
 
@@ -201,12 +199,10 @@ with st.expander("Log a New Compliance Breach"):
             }
             breach_log = pd.concat([breach_log, pd.DataFrame([new_row])], ignore_index=True)
             st.success("Breach logged (not saved to sheet in demo).")
-            # TODO: Implement write-back to Google Sheets here if desired
+            # TODO: Add write-back to Google Sheets here if needed
 
-# Display breach history
 st.write("#### All Breach Records")
 st.dataframe(breach_log)
 
-# ------ FOOTER -------
 st.markdown("---")
 st.markdown("<div class='footer'>© 2025 Compliance Advisor Pro</div>", unsafe_allow_html=True)
