@@ -7,18 +7,28 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-from streamlit_authenticator import Authenticate
+from streamlit_authenticator import Hasher, Authenticate
 
 # ------ AUTHENTICATION SETUP ------
 names = ['Admin', 'Viewer']
 usernames = ['admin', 'viewer']
+passwords = ['12345', '98765']  # Plain text passwords for example
 
-hashed_pw = [  # Paste the hashed passwords generated from Part 1 here
-    'pbkdf2:sha256:150000$abc123$examplehash1',
-    'pbkdf2:sha256:150000$def456$examplehash2'
-]
+hashed_pw = Hasher().generate(passwords)
 
-authenticator = Authenticate(names, usernames, hashed_pw, "complianceadvisor", "abcdef", cookie_expiry_days=30)
+credentials = {
+    "usernames": {
+        "admin": {"name": "Admin", "password": hashed_pw[0]},
+        "viewer": {"name": "Viewer", "password": hashed_pw[1]},
+    }
+}
+
+authenticator = Authenticate(
+    credentials=credentials,
+    cookie_name="complianceadvisor",
+    key="abcdef",
+    cookie_expiry_days=30
+)
 
 name, authentication_status, username = authenticator.login('Login', 'main')
 if authentication_status is False:
@@ -58,7 +68,7 @@ except Exception as e:
     st.stop()
 
 try:
-    breach_log = load_data(SHEET_ID, gid="YOUR_BREACH_LOG_GID")  # Replace with actual gid or remove gid param
+    breach_log = load_data(SHEET_ID, gid="YOUR_BREACH_LOG_GID")
 except Exception:
     breach_log = pd.DataFrame(columns=["Date", "Project", "Compliance Name", "Description", "Status", "Owner"])
 
