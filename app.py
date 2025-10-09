@@ -7,19 +7,19 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-from streamlit_authenticator import Authenticate
+from streamlit_authenticator import Hasher, Authenticate
 
 # ------ AUTHENTICATION SETUP ------
 names = ['Admin', 'Viewer']
 usernames = ['admin', 'viewer']
+passwords = ['12345', '98765']  # Plain text passwords for demo
 
-# Plain-text passwords for demonstration ONLY (not secure)
-plaintext_passwords = ['12345', '98765']
+hashed_pw = Hasher().generate(passwords)
 
 credentials = {
     "usernames": {
-        "admin": {"name": "Admin", "password": plaintext_passwords[0]},
-        "viewer": {"name": "Viewer", "password": plaintext_passwords[1]},
+        "admin": {"name": "Admin", "password": hashed_pw[0]},
+        "viewer": {"name": "Viewer", "password": hashed_pw[1]},
     }
 }
 
@@ -30,7 +30,7 @@ authenticator = Authenticate(
     cookie_expiry_days=30
 )
 
-name, authentication_status, username = authenticator.login('Login', 'main')
+name, authentication_status, username = authenticator.login('main')  # Correct call here
 
 if authentication_status is False:
     st.error('Invalid credentials')
@@ -60,7 +60,7 @@ def load_data(sheet_id, gid=None):
     df = pd.read_csv(url)
     return df
 
-SHEET_ID = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"  # Replace with actual Google Sheet ID
+SHEET_ID = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"  # Replace with your actual Google Sheet ID
 
 try:
     compliance_df = load_data(SHEET_ID)
@@ -69,7 +69,7 @@ except Exception as e:
     st.stop()
 
 try:
-    breach_log = load_data(SHEET_ID, gid="YOUR_BREACH_LOG_GID")
+    breach_log = load_data(SHEET_ID, gid="YOUR_BREACH_LOG_GID")  # Replace with actual gid or remove parameter
 except Exception:
     breach_log = pd.DataFrame(columns=["Date", "Project", "Compliance Name", "Description", "Status", "Owner"])
 
