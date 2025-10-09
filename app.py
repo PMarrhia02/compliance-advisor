@@ -1,29 +1,29 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import streamlit_authenticator as stauth
+import matplotlib.pyplot as plt
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-import matplotlib.pyplot as plt
+from streamlit_authenticator import Hasher, Authenticate
 
 # ------ AUTHENTICATION SETUP ------
-# Example credentials; in production, generate and store securely!
 names = ['Admin', 'Viewer']
 usernames = ['admin', 'viewer']
-passwords = ['12345', '98765']  # Use hashed passwords for production!
+passwords = ['12345', '98765']  # Plain text passwords for demo (replace in production)
 
-hashed_pw = stauth.Hasher(passwords).generate()
-authenticator = stauth.Authenticate(names, usernames, hashed_pw, "complianceadvisor", "abcdef", cookie_expiry_days=30)
+hashed_pw = Hasher(passwords).generate()
+
+authenticator = Authenticate(names, usernames, hashed_pw, "complianceadvisor", "abcdef", cookie_expiry_days=30)
 
 name, authentication_status, username = authenticator.login('Login', 'main')
 if authentication_status is False:
     st.error('Invalid credentials')
     st.stop()
 if authentication_status is None:
-    st.warning('Please enter credentials')
+    st.warning('Please enter your credentials')
     st.stop()
 
 # ------ PAGE SETUP AND STYLES ------
@@ -41,19 +41,23 @@ st.markdown("AI-powered compliance analysis and tracking for your requirements")
 
 # ------ LOAD DATA FROM GOOGLE SHEETS ------
 @st.cache_data
-def load_data(sheet_id, tab_name=None):
-    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-    if tab_name:
-        url += f"&gid={tab_name}"  # Optional if you want to specify worksheet/tab
-    return pd.read_csv(url)
+def load_data(sheet_id, gid=None):
+    base_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+    url = base_url if not gid else f"{base_url}&gid={gid}"
+    df = pd.read_csv(url)
+    return df
 
-SHEET_ID = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"
-compliance_df = load_data(SHEET_ID)  # Main compliance requirements
-# Load breach log: create a second tab named "Breach Log"
+SHEET_ID = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"  # Replace this with your actual Google Sheet ID
+
+# Load main compliance sheet (default tab)
+compliance_df = load_data(SHEET_ID)
+
+# Load breach log sheet (assumed second tab named 'Breach Log'; gid usually you find in URL)
+# If you don't know gid for 'Breach Log', you can omit gid param and it loads default tab.
 try:
-    breach_log = load_data(SHEET_ID, tab_name="Breach Log")
+    breach_log = load_data(SHEET_ID, gid="YOUR_BREACH_LOG_GID")  # Replace with actual gid or remove gid param if unsure
 except Exception:
-    breach_log = pd.DataFrame(columns=["Date","Project","Compliance Name","Description","Status","Owner"])
+    breach_log = pd.DataFrame(columns=["Date", "Project", "Compliance Name", "Description", "Status", "Owner"])
 
 # ------ USER INTERFACE ------
 project_description = st.text_area(
@@ -72,7 +76,8 @@ def match_category(text, categories):
             if term in text:
                 scores[category] += 2 if term == text.strip() else 1
     for category in scores:
-        if categories[category]: scores[category] = scores[category] / len(categories[category])
+        if categories[category]:
+            scores[category] = scores[category] / len(categories[category])
     max_score = max(scores.values())
     if max_score > 0:
         return max(scores, key=scores.get)
@@ -161,7 +166,7 @@ if st.button("🔍 Analyze Compliance", type="primary"):
         # Compliance Over Time Chart
         st.write("#### Compliance Progress Chart")
         vals = [len(met), len(pending)]
-        plt.bar(["Compliant","Pending"], vals, color=["green","orange"])
+        plt.bar(["Compliant", "Pending"], vals, color=["green", "orange"])
         st.pyplot(plt)
         # Show matched categories
         st.write("#### 📌 Detected Project Attributes")
@@ -182,7 +187,7 @@ with st.expander("Log a New Compliance Breach"):
         breach_proj = st.text_input("Project", help="Enter project/context for the breach")
         breach_name = st.text_input("Compliance Name", help="Which compliance was breached?")
         desc = st.text_area("Description", help="Describe the breach nature/details")
-        status = st.selectbox("Status", ["Open","Investigating","Closed"])
+        status = st.selectbox("Status", ["Open", "Investigating", "Closed"])
         owner = st.text_input("Owner", help="Responsible person or team")
         submit = st.form_submit_button("Submit Breach")
         if submit and breach_proj and breach_name and desc:
@@ -196,7 +201,7 @@ with st.expander("Log a New Compliance Breach"):
             }
             breach_log = pd.concat([breach_log, pd.DataFrame([new_row])], ignore_index=True)
             st.success("Breach logged (not saved to sheet in demo).")
-            # TODO: Write updated breach_log back to your Google Sheet using gspread if desired.
+            # TODO: Implement write-back to Google Sheets here if desired
 
 # Display breach history
 st.write("#### All Breach Records")
