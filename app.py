@@ -57,7 +57,7 @@ else:
             required_cols = [
                 'Compliance Name', 'Domain', 'Applies To',
                 'Checklist 1', 'Checklist 2', 'Checklist 3',
-                'Followed By Compunnel', 'Why Required'
+                'Followed By Compunnel', 'Why Required', 'Priority', 'Trigger Alert'
             ]
             missing_cols = [col for col in required_cols if col not in df.columns]
             if missing_cols:
@@ -79,21 +79,16 @@ else:
 
     # ---------------- Matching functions ---------------- #
     def match_category(text, categories, threshold=0.2):
-        """
-        Returns matched category only if at least one keyword hits threshold.
-        """
         text = text.lower()
         scores = {k: 0 for k in categories}
         for category, keywords in categories.items():
             for term in keywords:
                 if term in text:
                     scores[category] += 1
-
-        # Normalize scores by number of keywords
+        # Normalize scores
         for category in scores:
             if categories[category]:
                 scores[category] = scores[category] / len(categories[category])
-        
         # Filter by threshold
         filtered_scores = {k: v for k, v in scores.items() if v >= threshold}
         if not filtered_scores:
@@ -101,7 +96,6 @@ else:
         return max(filtered_scores, key=filtered_scores.get)
 
     def analyze_project(description):
-        # Define keywords
         domains = {
             "healthcare": ["healthcare", "hospital", "patient", "medical", "phi"],
             "finance": ["bank", "finance", "payment", "financial", "pci", "credit card"],
@@ -129,7 +123,6 @@ else:
         matched_data_type = match_category(description, data_types)
         matched_region = match_category(description, regions)
 
-        # If no valid category matched, return empty
         if not matched_domain and not matched_data_type and not matched_region:
             return {
                 "domain": None,
@@ -138,24 +131,14 @@ else:
                 "compliance_matches": []
             }
 
-        # Filter compliance dataframe
         compliance_matches = []
         for _, row in compliance_df.iterrows():
             row_domains = [x.strip().lower() for x in str(row['Domain']).split(",")]
             row_applies = [x.strip().lower() for x in str(row['Applies To']).split(",")]
-            
-            # Domain match (ignore "all" if no real match)
-            domain_match = False
-            if matched_domain:
-                domain_match = matched_domain in row_domains or "all" in row_domains
-
-            # Applies to match (ignore "all/global" if no real match)
-            applies_match = False
-            if matched_data_type or matched_region:
-                applies_match = (matched_region and matched_region.lower() in row_applies) or \
-                                (matched_data_type and matched_data_type.lower() in row_applies) or \
-                                "all" in row_applies or "global" in row_applies
-            
+            domain_match = matched_domain in row_domains or ("all" in row_domains and matched_domain)
+            applies_match = (matched_region and matched_region.lower() in row_applies) or \
+                            (matched_data_type and matched_data_type.lower() in row_applies) or \
+                            "all" in row_applies or "global" in row_applies
             if domain_match and applies_match:
                 checklist = [str(item) for item in [row['Checklist 1'], row['Checklist 2'], row['Checklist 3']] if pd.notna(item)]
                 compliance_matches.append({
@@ -176,12 +159,33 @@ else:
             "compliance_matches": compliance_matches
         }
 
+    # ---------------- PDF Report ---------------- #
+    def generate_pdf_report(project_info, compliance_data):
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        styles = getSampleStyleSheet()
+        story = []
+        story.append(Paragraph("Compliance Assessment Report", styles['Title']))
+        story.append(Spacer(1, 12))
+        story.append(Paragraph(f"<b>Domain:</b> {project_info['domain']}<br/><b>Data Type:</b> {project_info['data_type']}<br/><b>Region:</b> {project_info['region']}", styles['BodyText']))
+        story.append(Spacer(1, 12))
+        met = [c for c in compliance_data if c['followed']]
+        pending = [c for c in compliance_data if not c['followed']]
+        story.append(Paragraph(f"Total Requirements: {len(compliance_data)}<br/>Compliant: {len(met)}<br/>Pending: {len(pending)}", styles['BodyText']))
+        story.append(Spacer(1, 12))
+        for item in compliance_data:
+            status = "Compliant" if item['followed'] else "Pending"
+            checklist_text = ", ".join(item['checklist'])
+            story.append(Paragraph(f"{item['name']} - {status} - Checklist: {checklist_text}", styles['BodyText']))
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+
     # ---------------- Main Analysis ---------------- #
     if st.button("🔍 Analyze Compliance", type="primary"):
         if not project_description.strip():
             st.warning("Please enter a project description")
             st.stop()
-        
         with st.spinner("Analyzing requirements..."):
             results = analyze_project(project_description)
             st.session_state.results = results
@@ -190,25 +194,72 @@ else:
             if not results['compliance_matches']:
                 st.info("No compliance requirements detected for this project description.")
             else:
-                # Display summary metrics
+                # Summary Metrics
                 met = [c for c in results['compliance_matches'] if c['followed']]
                 pending = [c for c in results['compliance_matches'] if not c['followed']]
-                score = int((len(met) / len(results['compliance_matches'])) * 100)
-
+                score = int((len(met)/len(results['compliance_matches']))*100)
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
                     st.metric("Compliance Score", f"{score}%")
-                    st.markdown("</div>", unsafe_allow_html=True)
                 with col2:
-                    st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
                     st.metric("Pending Requirements", len(pending))
-                    st.markdown("</div>", unsafe_allow_html=True)
                 with col3:
-                    st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
                     high_pri = len([c for c in pending if c['priority'] == "High"])
                     st.metric("High Priority Items", high_pri)
-                    st.markdown("</div>", unsafe_allow_html=True)
+
+                # Project Attributes
+                st.markdown("### 📌 Detected Project Attributes")
+                att_col1, att_col2, att_col3 = st.columns(3)
+                att_col1.markdown(f"**Domain:** <span class='badge badge-blue'>{results['domain']}</span>", unsafe_allow_html=True)
+                att_col2.markdown(f"**Data Type:** <span class='badge badge-blue'>{results['data_type']}</span>", unsafe_allow_html=True)
+                att_col3.markdown(f"**Region:** <span class='badge badge-blue'>{results['region']}</span>", unsafe_allow_html=True)
+
+                # Priority Matrix
+                st.markdown("### 🚨 Priority Matrix")
+                high_priority = [c for c in pending if c['priority']=="High"]
+                standard_priority = [c for c in pending if c['priority']=="Standard"]
+                for item in high_priority:
+                    st.markdown(f"<div class='priority-high'><strong>{item['name']}</strong><br/>{item['why']}<br/><em>Checklist: {', '.join(item['checklist'])}</em></div>", unsafe_allow_html=True)
+                for item in standard_priority:
+                    st.markdown(f"<div class='priority-standard'><strong>{item['name']}</strong><br/>{item['why']}</div>", unsafe_allow_html=True)
+
+                # Full Checklist
+                st.markdown("### 📋 Detailed Checklist")
+                for item in results['compliance_matches']:
+                    with st.expander(f"{'✅' if item['followed'] else '❌'} {item['name']}"):
+                        st.markdown(f"**Priority:** {item['priority']}")
+                        if item['alert']:
+                            st.warning("⚠️ Alert: This regulation has recent updates")
+                        st.markdown("**Requirements:**")
+                        for point in item['checklist']:
+                            st.markdown(f"- {point}")
+                        st.markdown(f"*{item['why']}*")
+
+                # ---------------- Download Section ---------------- #
+                st.markdown("---")
+                st.markdown("## 📤 Generate Reports")
+                format_choice = st.radio("Select report type:", ["PDF Report", "Action Plan (CSV)"], horizontal=True)
+                if format_choice == "PDF Report":
+                    pdf_buffer = generate_pdf_report(
+                        {"domain": results['domain'], "data_type": results['data_type'], "region": results['region']},
+                        results['compliance_matches']
+                    )
+                    st.download_button("⬇️ Download PDF Report", pdf_buffer, "compliance_report.pdf", "application/pdf")
+                else:
+                    # Action Plan CSV
+                    action_items = []
+                    for item in pending:
+                        action_items.append({
+                            "Requirement": item['name'],
+                            "Priority": item['priority'],
+                            "Deadline": "30 days" if item['priority']=="High" else "90 days",
+                            "Actions": "; ".join(item['checklist']),
+                            "Owner": "[Assign Owner]",
+                            "Status": "Not Started"
+                        })
+                    df = pd.DataFrame(action_items)
+                    csv = df.to_csv(index=False)
+                    st.download_button("⬇️ Download Action Plan", csv, "compliance_action_plan.csv", "text/csv")
 
     # ---------------- Footer ---------------- #
     st.markdown("---")
