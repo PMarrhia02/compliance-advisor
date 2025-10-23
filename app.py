@@ -10,7 +10,7 @@ from reportlab.lib.units import inch
 # Page setup
 st.set_page_config(page_title="Compliance Advisor Pro", layout="wide")
 
-# Custom CSS
+# CSS
 st.markdown("""
 <style>
 .title { font-size: 2.5em; color: #003366; font-weight: bold; }
@@ -26,7 +26,7 @@ st.markdown("""
 st.markdown("<div class='title'>🔐 Compliance Advisor Pro</div>", unsafe_allow_html=True)
 st.markdown("AI-powered compliance analysis for your exact requirements")
 
-# User Authentication
+# Authentication
 if 'username' not in st.session_state:
     st.session_state.username = None
 
@@ -35,7 +35,7 @@ if st.session_state.username is None:
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
     if st.button("Login"):
-        if username == "admin" and password == "password":  # Replace with secure authentication
+        if username == "admin" and password == "password":
             st.session_state.username = username
             st.success("Logged in successfully!")
         else:
@@ -43,22 +43,18 @@ if st.session_state.username is None:
 else:
     st.success(f"Welcome, {st.session_state.username}!")
 
-    # Load data from Google Sheets
+    # Load compliance data from Google Sheets
     @st.cache_data
     def load_data():
-        sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"  # Replace with your sheet ID
+        sheet_id = "1kTLUwg_4-PDY-CsUvTpPv1RIJ59BztKI_qnVOLyF12I"
         sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-        try:
-            df = pd.read_csv(sheet_url)
-            required_cols = ['Compliance Name','Domain','Applies To','Checklist 1','Checklist 2','Checklist 3','Followed By Compunnel','Why Required','Priority','Trigger Alert']
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                st.error(f"Missing required columns: {', '.join(missing_cols)}")
-                st.stop()
-            return df
-        except Exception as e:
-            st.error(f"Failed to load data: {str(e)}")
+        df = pd.read_csv(sheet_url)
+        required_cols = ['Compliance Name','Domain','Applies To','Checklist 1','Checklist 2','Checklist 3','Followed By Compunnel','Why Required','Priority','Trigger Alert']
+        missing = [col for col in required_cols if col not in df.columns]
+        if missing:
+            st.error(f"Missing columns: {missing}")
             st.stop()
+        return df
 
     compliance_df = load_data()
 
@@ -77,16 +73,15 @@ else:
             for term in keywords:
                 if term in text:
                     scores[category] += 2 if term==text.strip() else 1
-        # Normalize by number of keywords
         for category in scores:
             if categories[category]:
                 scores[category] /= len(categories[category])
         max_score = max(scores.values())
         if max_score > 0:
             return [k for k,v in scores.items() if v==max_score]
-        else:
-            return ["all"]
+        return ["all"]
 
+    # Analysis
     def analyze_project(description):
         domains = {"healthcare":["healthcare","hospital","patient","medical","phi"],
                    "finance":["bank","finance","payment","financial","pci","credit card"],
@@ -99,12 +94,10 @@ else:
                       "sensitive":["sensitive","confidential","proprietary"]}
         regions = {"India":["india","indian"],"USA":["usa","united states","us"],"EU":["eu","europe","gdpr"],
                    "Canada":["canada"],"Brazil":["brazil","lgpd"],"global":["global","international","worldwide"]}
-        
         matched_domain = match_category(description, domains)
         matched_data_type = match_category(description, data_types)
         matched_region = match_category(description, regions)
-        
-        compliance_matches = []
+        compliance_matches=[]
         for _, row in compliance_df.iterrows():
             row_domains = [x.strip().lower() for x in str(row['Domain']).split(",")]
             domain_match = any(d in row_domains or "all" in row_domains for d in matched_domain)
@@ -122,12 +115,12 @@ else:
                 })
         return {"domain": matched_domain, "data_type": matched_data_type, "region": matched_region, "compliance_matches": compliance_matches}
 
-    # Generate PDF
-    def generate_pdf_report(project_info, compliance_data):
+    # PDF generation
+    def generate_pdf(project_info, compliance_data):
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)
         styles = getSampleStyleSheet()
-        story = []
+        story=[]
         story.append(Paragraph("Compliance Assessment Report", styles['Title']))
         story.append(Spacer(1,12))
         story.append(Paragraph(f"<b>Domain:</b> {', '.join(project_info['domain'])} | <b>Data Type:</b> {', '.join(project_info['data_type'])} | <b>Region:</b> {', '.join(project_info['region'])}", styles['BodyText']))
@@ -137,7 +130,7 @@ else:
             status="Compliant" if item['followed'] else "Pending"
             checklist="\n".join(item['checklist'])
             data.append([item['name'],status,checklist])
-        table = Table(data,colWidths=[2.5*inch,1*inch,3*inch])
+        table=Table(data,colWidths=[2.5*inch,1*inch,3*inch])
         table.setStyle(TableStyle([
             ('BACKGROUND',(0,0),(-1,0),colors.HexColor("#003366")),
             ('TEXTCOLOR',(0,0),(-1,0),colors.white),
@@ -152,15 +145,12 @@ else:
         buffer.seek(0)
         return buffer
 
-    if st.button("🔍 Analyze Compliance"):
-        if not project_description.strip():
-            st.warning("Please enter a project description")
-            st.stop()
-        with st.spinner("Analyzing requirements..."):
+    # Run analysis once per input
+    if st.button("🔍 Analyze Compliance") or st.session_state.get('results'):
+        if not st.session_state.get('results') and project_description.strip():
             results = analyze_project(project_description)
             st.session_state.results = results
-            # Prepare PDF and CSV for sticky download
-            st.session_state.pdf_buffer = generate_pdf_report(
+            st.session_state.pdf_buffer = generate_pdf(
                 {"domain": results['domain'],"data_type": results['data_type'],"region": results['region']},
                 results['compliance_matches']
             )
@@ -177,8 +167,9 @@ else:
                     })
             st.session_state.csv_data = pd.DataFrame(action_items).to_csv(index=False)
 
-    results = st.session_state.get('results')
-    if results:
+        results = st.session_state['results']
+
+        # Metrics
         met = [c for c in results['compliance_matches'] if c['followed']]
         pending = [c for c in results['compliance_matches'] if not c['followed']]
         score = int((len(met)/len(results['compliance_matches']))*100 if results['compliance_matches'] else 0)
@@ -186,15 +177,29 @@ else:
         col1.metric("Compliance Score", f"{score}%")
         col2.metric("Pending Requirements", len(pending))
         col3.metric("High Priority Items", len([c for c in pending if c['priority']=="High"]))
+
+        # Attributes
         st.markdown("### 📌 Detected Project Attributes")
-        st.markdown(f"**Domain:** {', '.join(results['domain'])} | **Data Type:** {', '.join(results['data_type'])} | **Region:** {', '.join(results['region'])}")
-        st.markdown("---")
-        st.download_button("⬇️ Download PDF Report", st.session_state.pdf_buffer, "compliance_report.pdf","application/pdf")
-        st.download_button("⬇️ Download Action Plan (CSV)", st.session_state.csv_data, "compliance_action_plan.csv","text/csv")
+        st.markdown(f"**Domain:** {', '.join(results['domain'])}")
+        st.markdown(f"**Data Type:** {', '.join(results['data_type'])}")
+        st.markdown(f"**Region:** {', '.join(results['region'])}")
+
+        # Priority Matrix
         st.markdown("### 🚨 Priority Matrix")
         for item in pending:
-            cls='priority-high' if item['priority']=="High" else 'priority-standard'
-            st.markdown(f"<div class='{cls}'><strong>{item['name']}</strong><br/>{item['why']}<br/>Checklist: {', '.join(item['checklist'])}</div>", unsafe_allow_html=True)
+            symbol = "🔴" if item['priority']=="High" else "🟠"
+            st.markdown(f"{symbol} **{item['name']}** - {item['why']}")
 
-    st.markdown("---")
+        # Compliance Details
+        st.markdown("### ✅ Compliance Details")
+        for item in results['compliance_matches']:
+            status="✅ Compliant" if item['followed'] else "❌ Pending"
+            st.markdown(f"{status} **{item['name']}** - {item['why']}")
+
+        # Downloads
+        st.markdown("### 📤 Download Reports")
+        st.download_button("⬇️ Download PDF Report", st.session_state.pdf_buffer, "compliance_report.pdf","application/pdf")
+        st.download_button("⬇️ Download CSV Action Items", st.session_state.csv_data, "action_items.csv","text/csv")
+
+    # Footer
     st.markdown("<div class='footer'>© 2025 Compliance Advisor Pro</div>", unsafe_allow_html=True)
